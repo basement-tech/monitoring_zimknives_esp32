@@ -91,7 +91,8 @@ void wifi_init_sta(void)
         .sta = {
             .ssid = EXAMPLE_ESP_WIFI_SSID,
             .password = EXAMPLE_ESP_WIFI_PASS,
-            /* Authmode threshold resets to WPA2 as default if password matches WPA2 standards (pasword len => 8).
+            /* 
+             * Authmode threshold resets to WPA2 as default if password matches WPA2 standards (pasword len => 8).
              * If you want to connect the device to deprecated WEP/WPA networks, Please set the threshold value
              * to WIFI_AUTH_WEP/WIFI_AUTH_WPA_PSK and set the password with length and format matching to
              * WIFI_AUTH_WEP/WIFI_AUTH_WPA_PSK standards.
@@ -107,16 +108,20 @@ void wifi_init_sta(void)
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
 
-    /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
-     * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
+    /* 
+     * Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
+     * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) 
+     */
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
             pdFALSE,
             portMAX_DELAY);
 
-    /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
-     * happened. */
+    /* 
+     * xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+     * happened. 
+     */
     if (bits & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
                  EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
@@ -126,4 +131,42 @@ void wifi_init_sta(void)
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
+}
+
+int8_t wifi_connect_status(bool verbose)  {
+    int8_t status = 0;
+
+    /* 
+     * Read whether the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
+     * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above).
+     * This function should be called after initialization of the connection, so one or ther other
+     * bits should be set and the function should return immediately.  However, include the 1 tick timeout so
+     * that this function won't block indefinitely in this case.
+     */
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+            pdFALSE,
+            pdFALSE,
+            (TickType_t)1);
+
+    /* 
+     * xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+     * happened. 
+     */
+    if (bits & WIFI_CONNECTED_BIT) {
+        status = 1;
+        if(verbose)
+            ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
+                    EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+    } else if (bits & WIFI_FAIL_BIT) {
+        status = 0;
+        if(verbose)
+            ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
+                    EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+    } else {
+        status = -1;
+        if(verbose)
+            ESP_LOGE(TAG, "UNEXPECTED EVENT");
+    }
+    return(status);
 }

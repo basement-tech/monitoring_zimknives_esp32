@@ -54,6 +54,7 @@
 #endif
 
 void wifi_init_sta(void);
+int8_t wifi_connect_status(bool verbose);
 
 #define __WIFI_STATION_H
 #endif

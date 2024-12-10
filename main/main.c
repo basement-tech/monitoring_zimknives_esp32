@@ -25,7 +25,9 @@
 
 void app_main(void)
 {
-    //Initialize NVS
+    /*
+     * Initialize NVS - apparently saves last successful connect credentials
+     */
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());
@@ -33,6 +35,14 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+    /*
+     * attempt to connect to wifi
+     */
     ESP_LOGI("main", "ESP_WIFI_MODE_STA");
     wifi_init_sta();
+
+    while(1)  {
+        wifi_connect_status(true);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
 }
