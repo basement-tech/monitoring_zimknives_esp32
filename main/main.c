@@ -23,8 +23,23 @@
 
 #include "wifi_station.h"
 
+#include "mqtt_client.h"
+
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.hostname = "192.168.1.24",
+        .broker.address.port = 1883,
+//
+// leave this unset for now to default to WIFI_STA_DEF for mqtt broker
+// beware, seems that the size of if_name is too small
+//        .network.if_name = "WIFI_STA_DEF",
+    };
+
+
+
 void app_main(void)
 {
+  char wifi_key[64];
+
     /*
      * Initialize NVS - apparently saves last successful connect credentials
      */
@@ -40,6 +55,11 @@ void app_main(void)
      */
     ESP_LOGI("main", "ESP_WIFI_MODE_STA");
     wifi_init_sta();
+
+    esp_wifi_connect();
+
+    get_wifi_key(wifi_key, sizeof(wifi_key));
+    ESP_LOGI("main", "wifi key: <%s>\n", wifi_key);
 
     while(1)  {
         wifi_connect_status(true);
