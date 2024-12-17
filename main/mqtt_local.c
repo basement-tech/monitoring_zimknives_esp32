@@ -26,6 +26,8 @@ esp_mqtt_client_config_t mqtt_cfg = {
 //        .network.if_name = "WIFI_STA_DEF",
 };
 
+static esp_mqtt_client_handle_t mqtt_client;
+
 static const char *TAG = "mqtt_local";
 
 static void log_error_if_nonzero(const char *message, int error_code)
@@ -129,9 +131,15 @@ void mqtt_app_start(void)
     }
 #endif /* CONFIG_BROKER_URL_FROM_STDIN */
 
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+    mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
-    esp_mqtt_client_start(client);
+    esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    esp_mqtt_client_start(mqtt_client);
 }
+
+esp_mqtt_client_handle_t get_mqtt_handle(void)
+{
+    return(mqtt_client);
+}
+
 

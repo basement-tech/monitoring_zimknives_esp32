@@ -26,11 +26,12 @@
 #include "mqtt_local.h"
 
 
-
+static const char *TAG = "main";
 
 void app_main(void)
 {
   char wifi_key[16];
+  int msg_id;
 
     /*
      * Initialize NVS - apparently saves last successful connect credentials
@@ -45,7 +46,7 @@ void app_main(void)
     /*
      * attempt to connect to wifi
      */
-    ESP_LOGI("main", "ESP_WIFI_MODE_STA");
+    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
     //esp_wifi_connect();  /* apparently not required */
@@ -57,12 +58,14 @@ void app_main(void)
      * but will leave this breadcrumb here.
      */
     get_wifi_key(wifi_key, sizeof(wifi_key));
-    ESP_LOGI("main", "wifi key: <%s>\n", wifi_key);
+    ESP_LOGI(TAG, "wifi key: <%s>\n", wifi_key);
 
     mqtt_app_start();
 
     while(1)  {
         wifi_connect_status(true);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        msg_id = esp_mqtt_client_publish(get_mqtt_handle(), "esp32/alive", "ping", 0, 1, 0);
+        ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
     }
 }
