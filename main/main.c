@@ -23,22 +23,14 @@
 
 #include "wifi_station.h"
 
-#include "mqtt_client.h"
+#include "mqtt_local.h"
 
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.hostname = "192.168.1.24",
-        .broker.address.port = 1883,
-//
-// leave this unset for now to default to WIFI_STA_DEF for mqtt broker
-// beware, seems that the size of if_name is too small
-//        .network.if_name = "WIFI_STA_DEF",
-    };
 
 
 
 void app_main(void)
 {
-  char wifi_key[64];
+  char wifi_key[16];
 
     /*
      * Initialize NVS - apparently saves last successful connect credentials
@@ -56,10 +48,18 @@ void app_main(void)
     ESP_LOGI("main", "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
-    esp_wifi_connect();
+    //esp_wifi_connect();  /* apparently not required */
+    /* TODO: Implement retry logic on lost wifi connection */
 
+    /*
+     * if a key other than the default is used, need to set
+     * set it in the config structure.  We're using the default, 
+     * but will leave this breadcrumb here.
+     */
     get_wifi_key(wifi_key, sizeof(wifi_key));
     ESP_LOGI("main", "wifi key: <%s>\n", wifi_key);
+
+    mqtt_app_start();
 
     while(1)  {
         wifi_connect_status(true);
