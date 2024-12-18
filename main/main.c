@@ -30,8 +30,8 @@ static const char *TAG = "main";
 
 void app_main(void)
 {
-  char wifi_key[16];
-  int msg_id;
+  char wifi_key[16];  // key to wifi instance
+  int msg_id;  // mqtt message id from broker
 
     /*
      * Initialize NVS - apparently saves last successful connect credentials

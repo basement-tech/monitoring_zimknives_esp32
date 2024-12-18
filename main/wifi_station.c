@@ -1,14 +1,18 @@
-/* Created from the esp-idf WiFi station Example
-   - modified to act as a sub to main()
-   - eliminated #defines from the configuration menu in lieu of strings here
-   - created wifi_station.h and included in main.c
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/* 
+ * wifi_station.c
+ * provide interface between esp_wifi conponent and application
+ * 
+ * Created from the esp-idf WiFi station Example
+ * - modified to act as a sub to main()
+ * - eliminated #defines from the configuration menu in lieu of strings here
+ * - created wifi_station.h and included in main.c
+ *
+ * This example code is in the Public Domain (or CC0 licensed, at your option.)
+ *
+ * Unless required by applicable law or agreed to in writing, this
+ * software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied.
+ */
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -36,13 +40,14 @@ static EventGroupHandle_t s_wifi_event_group;
 
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
- * - we failed to connect after the maximum amount of retries */
+ * - we failed to connect after the maximum amount of retries
+ */
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static const char *TAG = "wifi station";
+static const char *TAG = "wifi station"; // logging
 
-static int s_retry_num = 0;
+static int s_retry_num = 0; // counter for connect retry
 
 
 static void event_handler(void* arg, esp_event_base_t event_base,
@@ -72,6 +77,9 @@ void get_wifi_key(char *net_ifkey, size_t n)
     strncpy(net_ifkey, esp_netif_get_ifkey(myNetif), n);
 }
 
+/*
+ * initialize the wifi station instance and connect to AP
+ */
 void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
@@ -143,6 +151,13 @@ void wifi_init_sta(void)
     }
 }
 
+/*
+ * return the connection status of wifi
+ *
+ * return:  1  connected
+ *          0  not connected
+ *          -1 unexpected error
+ */
 int8_t wifi_connect_status(bool verbose)  {
     int8_t status = 0;
 

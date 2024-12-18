@@ -1,11 +1,13 @@
-/* based on MQTT (over TCP) Example
-
-   This code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/* 
+ * mqtt_local.c   provide interface between esp-idf esp_mqtt calls and application
+ * based on MQTT (over TCP) Example from esp-idf
+ *
+ * This code is in the Public Domain (or CC0 licensed, at your option.)
+ *
+ * Unless required by applicable law or agreed to in writing, this
+ * software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied.
+ */
 
 #include <stdio.h>
 #include <stdint.h>
@@ -15,7 +17,9 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 
-
+/*
+ * TODO: this will be set from eeprom based values
+ */
 esp_mqtt_client_config_t mqtt_cfg = {
     .broker.address.hostname = "192.168.1.24",
     .broker.address.transport = MQTT_TRANSPORT_OVER_TCP,
@@ -26,8 +30,15 @@ esp_mqtt_client_config_t mqtt_cfg = {
 //        .network.if_name = "WIFI_STA_DEF",
 };
 
+/*
+ * mqtt instance handle
+ * make this available for use with e.g. publish
+ */
 static esp_mqtt_client_handle_t mqtt_client;
 
+/*
+ * logging
+ */
 static const char *TAG = "mqtt_local";
 
 static void log_error_if_nonzero(const char *message, int error_code)
@@ -38,6 +49,10 @@ static void log_error_if_nonzero(const char *message, int error_code)
 }
 
 /*
+ * 
+ * TODO: adopt this from the example for now
+ *       modify for monitoring going forward
+ * 
  * @brief Event handler registered to receive MQTT events
  *
  *  This function is called by the MQTT client event loop.
@@ -104,39 +119,23 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
+/*
+ * start the mqtt process
+ * connect the mqtt_event_handler from above
+ * espect to see MQTT_EVENT_CONNECTED event (handled by mqtt_event_handler())
+ * esp_mqtt_client_config_t mqtt_cfg is expected to be set before calling this function
+ */
 void mqtt_app_start(void)
 {
-#if CONFIG_BROKER_URL_FROM_STDIN
-    char line[128];
-
-    if (strcmp(mqtt_cfg.broker.address.uri, "FROM_STDIN") == 0) {
-        int count = 0;
-        printf("Please enter url of mqtt broker\n");
-        while (count < 128) {
-            int c = fgetc(stdin);
-            if (c == '\n') {
-                line[count] = '\0';
-                break;
-            } else if (c > 0 && c < 127) {
-                line[count] = c;
-                ++count;
-            }
-            vTaskDelay(10 / portTICK_PERIOD_MS);
-        }
-        mqtt_cfg.broker.address.uri = line;
-        printf("Broker url: %s\n", line);
-    } else {
-        ESP_LOGE(TAG, "Configuration mismatch: wrong broker url");
-        abort();
-    }
-#endif /* CONFIG_BROKER_URL_FROM_STDIN */
-
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
     esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(mqtt_client);
 }
 
+/*
+ * expose the handle for functions like publish
+ */
 esp_mqtt_client_handle_t get_mqtt_handle(void)
 {
     return(mqtt_client);
