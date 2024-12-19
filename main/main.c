@@ -28,6 +28,22 @@
 
 static const char *TAG = "main";
 
+/*
+ * slow acquisition task
+ * acquires data from slower (~1s) sensors
+ * espect an include file for each sensor here
+ */
+#include "htu21d.h"
+void sensor_acq_slow(void)  {
+
+}
+
+/*
+ * main task:
+ * start wifi
+ * start mqtt
+ * loop and publish on slower cycle
+ */
 void app_main(void)
 {
   char wifi_key[16];  // key to wifi instance
@@ -61,6 +77,14 @@ void app_main(void)
     ESP_LOGI(TAG, "wifi key: <%s>\n", wifi_key);
 
     mqtt_app_start();
+
+#ifdef NOTYET
+    /*
+     * create the slow acquitision task
+     */
+    xTaskCreate( sensor_acq_slow, "sensor_acq_slow", STACK_SIZE, NULL, tskIDLE_PRIORITY, &xHandle_1 );
+    configASSERT( xHandle_1 ); /* check whether the returned handle is NULL */     
+#endif
 
     while(1)  {
         wifi_connect_status(true);
