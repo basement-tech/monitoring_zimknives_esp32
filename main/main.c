@@ -25,6 +25,8 @@
 
 #include "mqtt_local.h"
 
+#include "monitoring_zimknives.h"
+
 
 static const char *TAG = "main";
 
@@ -32,11 +34,30 @@ static const char *TAG = "main";
  * slow acquisition task
  * acquires data from slower (~1s) sensors
  * espect an include file for each sensor here
+ * 
+ * sensor_init_slow() : initialize the sensors that will use the slow acq loop
+ * sensor_acq_slow()  : read the slow acq loop sensors
  */
 #include "htu21d.h"
-void sensor_acq_slow(void)  {
+#define LTAG "slow_acq"
+
+#define STACK_SIZE 2048
+TaskHandle_t xHandle_1 = NULL;
+
+void sensor_init_slow(void)  {
 
 }
+void sensor_acq_slow(void *pvParameters)  {
+
+  sensor_init_slow();
+
+  while(1)  {
+    ESP_LOGI(LTAG, "slow acquisition initiated\n");
+    printf("sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
+    vTaskDelay(SLOW_LOOP_INTERVAL / portTICK_PERIOD_MS);
+  }
+}
+
 
 /*
  * main task:
@@ -78,13 +99,12 @@ void app_main(void)
 
     mqtt_app_start();
 
-#ifdef NOTYET
+
     /*
      * create the slow acquitision task
      */
     xTaskCreate( sensor_acq_slow, "sensor_acq_slow", STACK_SIZE, NULL, tskIDLE_PRIORITY, &xHandle_1 );
     configASSERT( xHandle_1 ); /* check whether the returned handle is NULL */     
-#endif
 
     while(1)  {
         wifi_connect_status(true);
