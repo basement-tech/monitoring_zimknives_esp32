@@ -45,15 +45,26 @@ static const char *TAG = "main";
 TaskHandle_t xHandle_1 = NULL;
 
 void sensor_init_slow(void)  {
+    int   reterr = HTU21D_ERR_OK;
 
+    if((reterr = htu21d_init(I2C_NUM_0, 21, 22,  GPIO_PULLUP_ONLY,  GPIO_PULLUP_ONLY)) == HTU21D_ERR_OK)
+        ESP_LOGI(LTAG, "HTU21D init OK\n");
+    else
+        ESP_LOGI(LTAG, "HTU21D init returned error code %d\n", reterr);
 }
 void sensor_acq_slow(void *pvParameters)  {
+  float temp, hum;
 
   sensor_init_slow();
 
   while(1)  {
     ESP_LOGI(LTAG, "slow acquisition initiated\n");
-    printf("sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
+    ESP_LOGI(LTAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
+    
+    temp = ht21d_read_temperature();
+    hum = ht21d_read_humidity();
+    ESP_LOGI(LTAG, "Temp = %f   Humidity = %f\n", temp, hum);
+
     vTaskDelay(SLOW_LOOP_INTERVAL / portTICK_PERIOD_MS);
   }
 }
