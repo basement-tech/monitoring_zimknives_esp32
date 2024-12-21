@@ -65,7 +65,7 @@ void acquire_sensors(void)  {
      */
     if(sensor_data_mutex != NULL)  {
         if(xSemaphoreTakeRecursive(sensor_data_mutex, SENSOR_MUTEX_WAIT_TICKS)  == pdTRUE)  {
-            ESP_LOGI(TAG, "sensor_data_mutex initialized and taken");
+            ESP_LOGI(TAG, "acquire_sensors(): sensor_data_mutex was taken");
             while(sensors[i].acq_fcn != NULL)  {
                 if(sensors[i].slow_acq == true)  {
                 ret = sensors[i].acq_fcn(sensors[i].data);
@@ -74,6 +74,7 @@ void acquire_sensors(void)  {
                 }
             }
             xSemaphoreGiveRecursive(sensor_data_mutex);  // release the data structure
+            ESP_LOGI(TAG, "acquire_sensors(): sensor_data_mutex given back");
         }
         else
             ESP_LOGI(TAG, "warning: can't take sensor_data_mutex ... try next time");
@@ -88,30 +89,37 @@ void acquire_sensors(void)  {
 void display_sensors(void)  {
   int i = 0;
 
-  while(sensors[i].acq_fcn != NULL)  {
-    switch(sensors[i].data_type) {
+    if(sensor_data_mutex != NULL)  {
+        if(xSemaphoreTakeRecursive(sensor_data_mutex, SENSOR_MUTEX_WAIT_TICKS)  == pdTRUE)  {
+            ESP_LOGI(TAG, "display_sensors(): sensor_data_mutex taken");
+            while(sensors[i].acq_fcn != NULL)  {
+                switch(sensors[i].data_type) {
 
-      case PARM_INT:
-          ESP_LOGI(TAG, "%s =  %d", sensors[i].label, *((int *)(sensors[i].data)));
-      break;
+                case PARM_INT:
+                    ESP_LOGI(TAG, "%s =  %d", sensors[i].label, *((int *)(sensors[i].data)));
+                break;
 
-      case PARM_FLOAT:
-          ESP_LOGI(TAG, "%s =  %f", sensors[i].label, *((float *)(sensors[i].data)));
-      break;
+                case PARM_FLOAT:
+                    ESP_LOGI(TAG, "%s =  %f", sensors[i].label, *((float *)(sensors[i].data)));
+                break;
 
-      case PARM_BOOL:
-          ESP_LOGI(TAG, "%s =  %d", sensors[i].label, *((bool *)(sensors[i].data)));
-      break;
+                case PARM_BOOL:
+                    ESP_LOGI(TAG, "%s =  %d", sensors[i].label, *((bool *)(sensors[i].data)));
+                break;
 
-      case PARM_STRING:
-          ESP_LOGI(TAG, "%s =  %s", sensors[i].label, (char *)(sensors[i].data));
-      break;
+                case PARM_STRING:
+                    ESP_LOGI(TAG, "%s =  %s", sensors[i].label, (char *)(sensors[i].data));
+                break;
 
-      default:
-          ESP_LOGI(TAG, "Error, can't display undefined sensor");
-      break;
+                default:
+                    ESP_LOGI(TAG, "Error, can't display undefined sensor");
+                break;
 
+                }
+                i++;
+            }
+            xSemaphoreGiveRecursive(sensor_data_mutex);  // release the data structure
+            ESP_LOGI(TAG, "display_sensors(): sensor_data_mutex given back");
+        }
     }
-    i++;
-  }
 }

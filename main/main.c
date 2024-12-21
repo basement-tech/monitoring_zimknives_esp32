@@ -52,9 +52,9 @@ void sensor_acq_slow(void *pvParameters)  {
   sensor_init_slow();
 
   while(1)  {
-    ESP_LOGI(TAG, "slow acquisition initiated\n");
-    ESP_LOGI(TAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
+    ESP_LOGI(TAG, "sensor_acq_slow(): executing on core %d", xPortGetCoreID());
 
+    ESP_LOGI(TAG, "slow acquisition initiated");
     acquire_sensors();
     display_sensors();
 
