@@ -82,6 +82,16 @@ float ht21d_read_humidity() {
 	return (raw_humidity * 125.0 / 65536.0) - 6.0;
 }
 
+int ht21d_acquire_humidity(void *humidity) {
+
+	// get the raw value from the sensor
+	uint16_t raw_humidity = read_value(TRIGGER_HUMD_MEASURE_NOHOLD);
+	if(raw_humidity == 0) return 0;
+	
+	*((float *)humidity) = (raw_humidity * 125.0 / 65536.0) - 6.0;
+	return 1;
+}
+
 uint8_t ht21d_get_resolution() {
 
 	uint8_t reg_value = ht21d_read_user_register();

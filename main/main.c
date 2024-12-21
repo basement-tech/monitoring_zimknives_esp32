@@ -27,10 +27,14 @@
 
 #include "monitoring_zimknives.h"
 
+/*
+ * sensor includes
+ */
+#include "htu21d.h"
 
 static const char *TAG = "main";
 
-#ifdef NOTYET
+
 /*
  * structure to manage acquisition and storage of sensor values
  *
@@ -59,13 +63,25 @@ typedef struct {
   bool valid;     // set true if data acquisition is successful
 } sensor_data_t;
 
-sensor_data_t sensors  {
-  { acquire_humidity(), &humidity, PARM_FLOAT, "humidity", HUMIDITY_TOPIC, true, , false },
-  { acquire_temp(), &temperature, PARM_FLOAT, "temperature", TEMPERATURE_TOPIC, true, false },
-  { null, 0, PARM_UND, "", "", false, false}  // terminate the list
+static float humidity = 0;
+
+sensor_data_t sensors[] =  {
+  { ht21d_acquire_humidity, (void *)(&humidity), PARM_FLOAT, "HTU21D humidity", "esp32/humidity", true, false, false },
+  { NULL, (void *)(0), PARM_UND, "end of sensors", "", false, false, false },
 };
 
-#endif
+void acquire_sensors(void)  {
+  int i = 0;
+  int ret = 0;
+
+  while(sensors[i].acq_fcn != NULL)  {
+    ret = sensors[i].acq_fcn(sensors[i].data);
+    ESP_LOGI("acquire_sensors: ", "%s acquire returned %s\n", sensors[i].label, (ret ? "success" : "fail" ));
+    i++;
+  }
+
+}
+
 
 /*
  * slow acquisition task
@@ -75,7 +91,7 @@ sensor_data_t sensors  {
  * sensor_init_slow() : initialize the sensors that will use the slow acq loop
  * sensor_acq_slow()  : read the slow acq loop sensors
  */
-#include "htu21d.h"
+
 #define LTAG "slow_acq"
 
 #define STACK_SIZE 2048
@@ -90,7 +106,7 @@ void sensor_init_slow(void)  {
         ESP_LOGI(LTAG, "HTU21D init returned error code %d\n", reterr);
 }
 void sensor_acq_slow(void *pvParameters)  {
-  float temp, hum;
+  float temp;
 
   sensor_init_slow();
 
@@ -99,8 +115,9 @@ void sensor_acq_slow(void *pvParameters)  {
     ESP_LOGI(LTAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
 
     temp = ht21d_read_temperature();
-    hum = ht21d_read_humidity();
-    ESP_LOGI(LTAG, "Temp = %f   Humidity = %f\n", temp, hum);
+
+    acquire_sensors();
+    ESP_LOGI(LTAG, "Temp = %f   Humidity = %f\n", temp, *((float *)(sensors[0].data)));
 
     vTaskDelay(SLOW_LOOP_INTERVAL / portTICK_PERIOD_MS);
   }

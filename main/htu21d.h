@@ -52,6 +52,7 @@ extern i2c_port_t htu_port;
 int htu21d_init(i2c_port_t port, int sda_pin, int scl_pin, gpio_pullup_t sda_internal_pullup, gpio_pullup_t scl_internal_pullup);
 float ht21d_read_temperature();
 float ht21d_read_humidity();
+int ht21d_acquire_humidity(void *humidity);
 uint8_t ht21d_get_resolution();
 int ht21d_set_resolution(uint8_t resolution);
 int htu21d_soft_reset();
