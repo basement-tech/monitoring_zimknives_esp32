@@ -39,9 +39,19 @@ static const char *TAG = "main";
  * acq_fcn must return a simple 1 for success, 0 for failure.
  */
 typedef int (*acquisition_function_t)(void *data);
+
+/*
+ * types of sensor data
+ */
+#define PARM_UND   -1  /* undefined */
+#define PARM_INT    0
+#define PARM_FLOAT  1
+#define PARM_BOOL   2
+#define PARM_STRING 3
 typedef struct {
   acquisition_function_t  acq_fcn;    // pointer to function to cause data acquisition
   void *data;     // pointer to actual data value
+  uint8_t  data_type; // type of data
   char *label;    // human readable label
   char *topic;    // topic for mqtt publish
   bool slow_acq;  // whether to acquire on the slow loop
@@ -50,9 +60,9 @@ typedef struct {
 } sensor_data_t;
 
 sensor_data_t sensors  {
-  { acquire_humidity(), &humidity, "humidity", HUMIDITY_TOPIC, true, , false },
-  { acquire_temp(), &temperature, "temperature", TEMPERATURE_TOPIC, true, false },
-  { null, 0, "", "", false, false}
+  { acquire_humidity(), &humidity, PARM_FLOAT, "humidity", HUMIDITY_TOPIC, true, , false },
+  { acquire_temp(), &temperature, PARM_FLOAT, "temperature", TEMPERATURE_TOPIC, true, false },
+  { null, 0, PARM_UND, "", "", false, false}  // terminate the list
 };
 
 #endif
