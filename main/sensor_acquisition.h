@@ -8,6 +8,9 @@
 
 #ifndef __SENSOR_ACQUISITION_H__
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "esp_system.h"  // for types (at least)
 
 /*
@@ -47,6 +50,8 @@ typedef struct {
 #define PARM_STRING 3
 
 extern sensor_data_t sensors[];  // sensor acq and data structure
+extern SemaphoreHandle_t sensor_data_mutex;  // mutex for sensors[]
+#define SENSOR_MUTEX_WAIT_TICKS (TickType_t)100  // how many ticks to wait for the sensor structure mutex
 
 /*
  * public functions

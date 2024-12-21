@@ -40,10 +40,11 @@ static const char *TAG = "main";  // for logging
  * 
  * Note on STACK_SIZE: used value of 2048 from example and after adding more code
  * got irrational error relating to "i2c driver not loaded".  Increased to 4096 and
- * the error was resolved.  TODO: determine the right size.
+ * the error was resolved.  was red hering : not related to stack 
+ * (was new parameter in i2c conf struct).  I'll leave at 8096.  TODO: research
  */
 
-#define STACK_SIZE 4096
+#define STACK_SIZE 8096
 TaskHandle_t xHandle_1 = NULL;
 
 void sensor_acq_slow(void *pvParameters)  {
