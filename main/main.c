@@ -34,7 +34,7 @@
 
 static const char *TAG = "main";
 
-
+#define LTAG "slow_acq"
 /*
  * structure to manage acquisition and storage of sensor values
  *
@@ -59,15 +59,18 @@ typedef struct {
   char *label;    // human readable label
   char *topic;    // topic for mqtt publish
   bool slow_acq;  // whether to acquire on the slow loop
+  bool publish;   // whether to publish this sensors result
   bool display;   // whether to display for actions that care
   bool valid;     // set true if data acquisition is successful
 } sensor_data_t;
 
 static float humidity = 0;
+static float temperature = 0;
 
 sensor_data_t sensors[] =  {
-  { ht21d_acquire_humidity, (void *)(&humidity), PARM_FLOAT, "HTU21D humidity", "esp32/humidity", true, false, false },
-  { NULL, (void *)(0), PARM_UND, "end of sensors", "", false, false, false },
+  { ht21d_acquire_humidity, (void *)(&humidity), PARM_FLOAT, "HTU21D humidity", "esp32/humidity", true, false, false, false },
+  { ht21d_acquire_temperature, (void *)(&temperature), PARM_FLOAT, "HTU21D temperature", "esp32/temperature", true, false, false, false },
+  { NULL, (void *)(0), PARM_UND, "end of sensors", "", false, false, false, false },
 };
 
 void acquire_sensors(void)  {
@@ -75,13 +78,45 @@ void acquire_sensors(void)  {
   int ret = 0;
 
   while(sensors[i].acq_fcn != NULL)  {
-    ret = sensors[i].acq_fcn(sensors[i].data);
-    ESP_LOGI("acquire_sensors: ", "%s acquire returned %s\n", sensors[i].label, (ret ? "success" : "fail" ));
-    i++;
+    if(sensors[i].slow_acq == true)  {
+      ret = sensors[i].acq_fcn(sensors[i].data);
+      ESP_LOGI(LTAG, "%s acquire returned %s", sensors[i].label, (ret ? "success" : "fail" ));
+      i++;
+    }
   }
 
 }
 
+void display_sensors(void)  {
+  int i = 0;
+
+  while(sensors[i].acq_fcn != NULL)  {
+    switch(sensors[i].data_type) {
+
+      case PARM_INT:
+          ESP_LOGI(LTAG, "%s =  %d", sensors[i].label, *((int *)(sensors[i].data)));
+      break;
+
+      case PARM_FLOAT:
+          ESP_LOGI(LTAG, "%s =  %f", sensors[i].label, *((float *)(sensors[i].data)));
+      break;
+
+      case PARM_BOOL:
+          ESP_LOGI(LTAG, "%s =  %d", sensors[i].label, *((bool *)(sensors[i].data)));
+      break;
+
+      case PARM_STRING:
+          ESP_LOGI(LTAG, "%s =  %s", sensors[i].label, (char *)(sensors[i].data));
+      break;
+
+      default:
+          ESP_LOGI(LTAG, "Error, can't display undefined sensor");
+      break;
+
+    }
+    i++;
+  }
+}
 
 /*
  * slow acquisition task
@@ -92,9 +127,9 @@ void acquire_sensors(void)  {
  * sensor_acq_slow()  : read the slow acq loop sensors
  */
 
-#define LTAG "slow_acq"
 
-#define STACK_SIZE 2048
+
+#define STACK_SIZE 4096
 TaskHandle_t xHandle_1 = NULL;
 
 void sensor_init_slow(void)  {
@@ -114,10 +149,9 @@ void sensor_acq_slow(void *pvParameters)  {
     ESP_LOGI(LTAG, "slow acquisition initiated\n");
     ESP_LOGI(LTAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
 
-    temp = ht21d_read_temperature();
-
     acquire_sensors();
-    ESP_LOGI(LTAG, "Temp = %f   Humidity = %f\n", temp, *((float *)(sensors[0].data)));
+
+    display_sensors();
 
     vTaskDelay(SLOW_LOOP_INTERVAL / portTICK_PERIOD_MS);
   }

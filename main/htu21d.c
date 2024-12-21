@@ -72,6 +72,17 @@ float ht21d_read_temperature() {
 	return (raw_temperature * 175.72 / 65536.0) - 46.85;
 }
 
+int ht21d_acquire_temperature(void *temperature) {
+
+	// get the raw value from the sensor
+	uint16_t raw_temperature = read_value(TRIGGER_TEMP_MEASURE_NOHOLD);
+	if(raw_temperature == 0) return 0;
+	
+	// return the real value, formula in datasheet
+	*((float *)temperature) = (raw_temperature * 175.72 / 65536.0) - 46.85;
+	return 1;
+}
+
 float ht21d_read_humidity() {
 
 	// get the raw value from the sensor
