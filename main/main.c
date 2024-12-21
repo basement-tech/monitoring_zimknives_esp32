@@ -30,6 +30,33 @@
 
 static const char *TAG = "main";
 
+#ifdef NOTYET
+/*
+ * structure to manage acquisition and storage of sensor values
+ *
+ * sensor api's must provide a simple function (acq_fcn) that acquires their
+ * data value and places it in the pointer provided as an argument.
+ * acq_fcn must return a simple 1 for success, 0 for failure.
+ */
+typedef int (*acquisition_function_t)(void *data);
+typedef struct {
+  acquisition_function_t  acq_fcn;    // pointer to function to cause data acquisition
+  void *data;     // pointer to actual data value
+  char *label;    // human readable label
+  char *topic;    // topic for mqtt publish
+  bool slow_acq;  // whether to acquire on the slow loop
+  bool display;   // whether to display for actions that care
+  bool valid;     // set true if data acquisition is successful
+} sensor_data_t;
+
+sensor_data_t sensors  {
+  { acquire_humidity(), &humidity, "humidity", HUMIDITY_TOPIC, true, , false },
+  { acquire_temp(), &temperature, "temperature", TEMPERATURE_TOPIC, true, false },
+  { null, 0, "", "", false, false}
+};
+
+#endif
+
 /*
  * slow acquisition task
  * acquires data from slower (~1s) sensors
@@ -60,7 +87,7 @@ void sensor_acq_slow(void *pvParameters)  {
   while(1)  {
     ESP_LOGI(LTAG, "slow acquisition initiated\n");
     ESP_LOGI(LTAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
-    
+
     temp = ht21d_read_temperature();
     hum = ht21d_read_humidity();
     ESP_LOGI(LTAG, "Temp = %f   Humidity = %f\n", temp, hum);
