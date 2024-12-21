@@ -21,102 +21,14 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
-#include "wifi_station.h"
-
-#include "mqtt_local.h"
-
 #include "monitoring_zimknives.h"
 
-/*
- * sensor includes
- */
-#include "htu21d.h"
+#include "wifi_station.h"
+#include "mqtt_local.h"
 
-static const char *TAG = "main";
+#include "sensor_acquisition.h"
 
-#define LTAG "slow_acq"
-/*
- * structure to manage acquisition and storage of sensor values
- *
- * sensor api's must provide a simple function (acq_fcn) that acquires their
- * data value and places it in the pointer provided as an argument.
- * acq_fcn must return a simple 1 for success, 0 for failure.
- */
-typedef int (*acquisition_function_t)(void *data);
-
-/*
- * types of sensor data
- */
-#define PARM_UND   -1  /* undefined */
-#define PARM_INT    0
-#define PARM_FLOAT  1
-#define PARM_BOOL   2
-#define PARM_STRING 3
-typedef struct {
-  acquisition_function_t  acq_fcn;    // pointer to function to cause data acquisition
-  void *data;     // pointer to actual data value
-  uint8_t  data_type; // type of data
-  char *label;    // human readable label
-  char *topic;    // topic for mqtt publish
-  bool slow_acq;  // whether to acquire on the slow loop
-  bool publish;   // whether to publish this sensors result
-  bool display;   // whether to display for actions that care
-  bool valid;     // set true if data acquisition is successful
-} sensor_data_t;
-
-static float humidity = 0;
-static float temperature = 0;
-
-sensor_data_t sensors[] =  {
-  { ht21d_acquire_humidity, (void *)(&humidity), PARM_FLOAT, "HTU21D humidity", "esp32/humidity", true, false, false, false },
-  { ht21d_acquire_temperature, (void *)(&temperature), PARM_FLOAT, "HTU21D temperature", "esp32/temperature", true, false, false, false },
-  { NULL, (void *)(0), PARM_UND, "end of sensors", "", false, false, false, false },
-};
-
-void acquire_sensors(void)  {
-  int i = 0;
-  int ret = 0;
-
-  while(sensors[i].acq_fcn != NULL)  {
-    if(sensors[i].slow_acq == true)  {
-      ret = sensors[i].acq_fcn(sensors[i].data);
-      ESP_LOGI(LTAG, "%s acquire returned %s", sensors[i].label, (ret ? "success" : "fail" ));
-      i++;
-    }
-  }
-
-}
-
-void display_sensors(void)  {
-  int i = 0;
-
-  while(sensors[i].acq_fcn != NULL)  {
-    switch(sensors[i].data_type) {
-
-      case PARM_INT:
-          ESP_LOGI(LTAG, "%s =  %d", sensors[i].label, *((int *)(sensors[i].data)));
-      break;
-
-      case PARM_FLOAT:
-          ESP_LOGI(LTAG, "%s =  %f", sensors[i].label, *((float *)(sensors[i].data)));
-      break;
-
-      case PARM_BOOL:
-          ESP_LOGI(LTAG, "%s =  %d", sensors[i].label, *((bool *)(sensors[i].data)));
-      break;
-
-      case PARM_STRING:
-          ESP_LOGI(LTAG, "%s =  %s", sensors[i].label, (char *)(sensors[i].data));
-      break;
-
-      default:
-          ESP_LOGI(LTAG, "Error, can't display undefined sensor");
-      break;
-
-    }
-    i++;
-  }
-}
+static const char *TAG = "main";  // for logging
 
 /*
  * slow acquisition task
@@ -125,32 +37,24 @@ void display_sensors(void)  {
  * 
  * sensor_init_slow() : initialize the sensors that will use the slow acq loop
  * sensor_acq_slow()  : read the slow acq loop sensors
+ * 
+ * Note on STACK_SIZE: used value of 2048 from example and after adding more code
+ * got irrational error relating to "i2c driver not loaded".  Increased to 4096 and
+ * the error was resolved.  TODO: determine the right size.
  */
-
-
 
 #define STACK_SIZE 4096
 TaskHandle_t xHandle_1 = NULL;
 
-void sensor_init_slow(void)  {
-    int   reterr = HTU21D_ERR_OK;
-
-    if((reterr = htu21d_init(I2C_NUM_0, 21, 22,  GPIO_PULLUP_ONLY,  GPIO_PULLUP_ONLY)) == HTU21D_ERR_OK)
-        ESP_LOGI(LTAG, "HTU21D init OK\n");
-    else
-        ESP_LOGI(LTAG, "HTU21D init returned error code %d\n", reterr);
-}
 void sensor_acq_slow(void *pvParameters)  {
-  float temp;
 
   sensor_init_slow();
 
   while(1)  {
-    ESP_LOGI(LTAG, "slow acquisition initiated\n");
-    ESP_LOGI(LTAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
+    ESP_LOGI(TAG, "slow acquisition initiated\n");
+    ESP_LOGI(TAG, "sensor_acq_slow(): executing on core %d\n", xPortGetCoreID());
 
     acquire_sensors();
-
     display_sensors();
 
     vTaskDelay(SLOW_LOOP_INTERVAL / portTICK_PERIOD_MS);
@@ -162,7 +66,8 @@ void sensor_acq_slow(void *pvParameters)  {
  * main task:
  * start wifi
  * start mqtt
- * loop and publish on slower cycle
+ * start other tasks
+ * loop and publish health/welfare ping
  */
 void app_main(void)
 {
@@ -197,7 +102,6 @@ void app_main(void)
     ESP_LOGI(TAG, "wifi key: <%s>\n", wifi_key);
 
     mqtt_app_start();
-
 
     /*
      * create the slow acquitision task
