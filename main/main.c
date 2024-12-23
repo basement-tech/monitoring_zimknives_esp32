@@ -28,6 +28,8 @@
 
 #include "sensor_acquisition.h"
 
+#include "display_neopixel.h"
+
 static const char *TAG = "main";  // for logging
 
 /*
@@ -60,6 +62,23 @@ void sensor_acq_slow(void *pvParameters)  {
 
     vTaskDelay(SLOW_LOOP_INTERVAL / portTICK_PERIOD_MS);
   }
+}
+
+/*
+ * the neopixel function itself
+ * (i.e. started as a task in main)
+ * 
+ */
+static void neopixel_example(void *pvParameters)
+{
+    /* Configure the peripheral according to the LED type */
+    configure_led();
+
+    while(1)
+    {
+        ping_led();  // update the neopixel array
+        vTaskDelay(50 / portTICK_PERIOD_MS);  // set speed of neopixel chase here and give IDLE() time to run
+    }
 }
 
 
@@ -108,7 +127,28 @@ void app_main(void)
      * create the slow acquitision task
      */
     xTaskCreate( sensor_acq_slow, "sensor_acq_slow", STACK_SIZE, NULL, tskIDLE_PRIORITY, &xHandle_1 );
-    configASSERT( xHandle_1 ); /* check whether the returned handle is NULL */     
+    configASSERT( xHandle_1 ); /* check whether the returned handle is NULL */
+
+    /*
+     * create a task to play out the neopixel example
+     * TODO: why was the priority 10 ?
+     */
+    xTaskCreate(neopixel_example, "neopixel_example", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL);
+
+#ifdef NOT_YET
+    /*
+     * experimenting with time of day
+     */
+    time_t current_time;
+    char strftime_buf[64];
+    struct tm time_settings;
+    
+    setenv("TZ", "CST+6", 1);
+    tzset();
+    localtime_r(&current_time, &time_settings);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &time_settings);
+    ESP_LOGI(TAG, "The current date/time is: %s", strftime_buf);
+#endif
 
     while(1)  {
         wifi_connect_status(true);

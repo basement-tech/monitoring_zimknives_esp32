@@ -2,3 +2,4 @@ build/
 components/
 sdkconfig
 sdkconfig.old
+managed_components/
