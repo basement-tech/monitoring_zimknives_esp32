@@ -60,18 +60,18 @@ static void blink_led(void)
 /*
  * update the led (neo_pixel) display based on the mode
  */
-void display_neopixel_update(uint8_t display_neopixel_mode)  {
+void display_neopixel_update(uint8_t display_neopixel_mode, int32_t value)  {
     switch(display_neopixel_mode)  {
         case PONG_EXAMPLE:
-            ping_led();
+            led_next_pong();
         break;
 
         case SIM_REG_EXAMPLE:
-            next_reg_led();
+            led_next_reg();
         break;
 
         case EXCEL_COLOR_VALUE:
-            ESP_LOGI(TAG, "display_neopixel mode %d not yet implemented", display_neopixel_mode);
+            led_bargraph_update(value);
         break;
 
         case BANDED_COLOR_VALUE:
@@ -91,7 +91,7 @@ static int8_t cur_led = -1;  // the led that is currently lit
 static uint8_t led_dir = 1;  // 1 = fwd, 0 = rev
 static uint8_t r = 16, g = 0, b = 0;
 #define NUM_LEDS 20  // temporary hack TODO
-void ping_led(void)
+void led_next_pong(void)
 {
     if(led_dir == 1)
     {
@@ -131,7 +131,7 @@ void ping_led(void)
 static uint8_t led_reg_message[] = {0x4e, 0x43, 0x43, 0x31, 0x37, 0x30, 0x31};
 static int8_t led_idx = -1;  // to step through the message
 
-void next_reg_led(void)  {
+void led_next_reg(void)  {
     int8_t end_idx = LED_REG_MSG_SIZE - 1;  // to know we are at end of message
     uint8_t mask = 0x01;  // anded with ascii value to assign bit values
 
@@ -160,6 +160,120 @@ void next_reg_led(void)  {
 
     led_strip_refresh(led_strip);
 
+}
+
+
+/*
+ * EXCEL_COLOR_VALUE mode
+ * load a baseline/dim graduated scale and brighten 
+ * from the bottom (bar graph) based on an integer value.
+ * the min and max range is also set.
+ */
+
+/*
+ * define the background colors (i.e. off) color
+ * of each led
+ * NOTE: you have to manually manage the length of this array
+ */
+#define LED_R 0
+#define LED_G 1
+#define LED_B 2
+static uint8_t led_bargraph_off_colors[NUM_LEDS][3] = {
+    {0, 10, 0},
+    {0, 10, 0},
+    {0, 10, 0},
+    {0, 10, 0},
+    {0, 10, 0},
+    {0, 10, 0},
+    {24, 24, 8},
+    {24, 24, 8},
+    {24, 24, 8},
+    {24, 24, 8},
+    {24, 24, 8},
+    {24, 24, 8},
+    {24, 24, 8},
+    {10, 0, 0},
+    {10, 0, 0},
+    {10, 0, 0},
+    {10, 0, 0},
+    {10, 0, 0},
+    {10, 0, 0},
+    {10, 0, 0},
+};
+
+static uint8_t led_bargraph_on_colors[NUM_LEDS][3] = {
+    {0, 90, 0},
+    {0, 90, 0},
+    {0, 90, 0},
+    {0, 90, 0},
+    {0, 90, 0},
+    {0, 90, 0},
+    {45, 45, 15},
+    {45, 45, 15},
+    {45, 45, 15},
+    {45, 45, 15},
+    {45, 45, 15},
+    {45, 45, 15},
+    {45, 45, 15},
+    {90, 0, 0},
+    {90, 0, 0},
+    {90, 0, 0},
+    {90, 0, 0},
+    {90, 0, 0},
+    {90, 0, 0},
+    {90, 0, 0},
+};
+
+static int32_t led_bargraph_max = 0;
+static int32_t led_bargraph_min = 0;
+void led_bargraph_max_set(int32_t max_value)  {
+    led_bargraph_max = max_value;
+}
+
+void led_bargraph_min_set(int32_t min_value)  {
+    led_bargraph_min = min_value;
+}
+
+/*
+ * led_bargraph_update()
+ *
+ * clear, set background color, light leds based on passed in argument value
+ * 
+ * NOTE: you have to manage converting your parameter to an positive integer range/value
+ *       (the value is confirmed to be between min/max)
+ * TODO: make this work for negative numbers
+ */
+void led_bargraph_update(int32_t value)  {
+    uint8_t top_on_pixel = 0;  // on this pixel and below
+    int32_t led_segment = 0;
+
+    if(value <= 0)  value = 0;
+
+    led_strip_clear(led_strip);
+
+    /*
+     * load the background color (i.e. off state)
+     */
+    for(uint8_t i = 0; i < NUM_LEDS; i++)
+        led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
+                            led_bargraph_off_colors[i][LED_G],
+                            led_bargraph_off_colors[i][LED_B]);
+
+    /*
+     * overwrite the ones that should be on based on the input value
+     */
+    if((led_segment = value - led_bargraph_min) < led_bargraph_min)
+        led_segment = 0;
+    top_on_pixel = led_segment / ((led_bargraph_max - led_bargraph_min)/NUM_LEDS);
+    for(uint8_t i = 0; i < NUM_LEDS; i++)  {
+        if(i < top_on_pixel)  {
+            led_strip_set_pixel(led_strip, i, led_bargraph_on_colors[i][LED_R], 
+                                led_bargraph_on_colors[i][LED_G],
+                                led_bargraph_on_colors[i][LED_B]);
+        }
+    }
+
+    led_strip_refresh(led_strip);
 }
 
 /*

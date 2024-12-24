@@ -73,17 +73,35 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_MODE PONG_EXAMPLE
 //#define DISPLAY_NEOPIXEL_SPEED (50 / portTICK_PERIOD_MS)  // mS between strip updates
 
-#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
+//#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
+//#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
+
+#define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
 #define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
+
+#define LED_BARGRAPH_MAX 100
+#define LED_BARGRAPH_MIN 0
+int32_t led_bargraph_value = LED_BARGRAPH_MIN;
+static void led_bargraph_incr(void)  {
+  led_bargraph_value += 10;
+  if(led_bargraph_value > LED_BARGRAPH_MAX)
+    led_bargraph_value = LED_BARGRAPH_MIN;
+}
 
 static void neopixel_example(void *pvParameters)
 {
     /* Configure the peripheral according to the LED type */
     configure_led();
 
+    if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)  {
+      led_bargraph_min_set(0);
+      led_bargraph_max_set(100);
+    }
     while(1)
     {
-        display_neopixel_update(DISPLAY_NEOPIXEL_MODE);
+        if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)
+          led_bargraph_incr();
+        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_value);
         vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }
 }
