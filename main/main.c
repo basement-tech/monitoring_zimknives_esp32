@@ -12,6 +12,7 @@
  *  
  */
 #include <stdio.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -69,6 +70,12 @@ void sensor_acq_slow(void *pvParameters)  {
  * (i.e. started as a task in main)
  * 
  */
+//#define DISPLAY_NEOPIXEL_MODE PONG_EXAMPLE
+//#define DISPLAY_NEOPIXEL_SPEED (50 / portTICK_PERIOD_MS)  // mS between strip updates
+
+#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
+#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
+
 static void neopixel_example(void *pvParameters)
 {
     /* Configure the peripheral according to the LED type */
@@ -76,8 +83,8 @@ static void neopixel_example(void *pvParameters)
 
     while(1)
     {
-        ping_led();  // update the neopixel array
-        vTaskDelay(50 / portTICK_PERIOD_MS);  // set speed of neopixel chase here and give IDLE() time to run
+        display_neopixel_update(DISPLAY_NEOPIXEL_MODE);
+        vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }
 }
 

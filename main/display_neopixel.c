@@ -13,6 +13,8 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -54,6 +56,33 @@ static void blink_led(void)
     }
 }
 
+
+/*
+ * update the led (neo_pixel) display based on the mode
+ */
+void display_neopixel_update(uint8_t display_neopixel_mode)  {
+    switch(display_neopixel_mode)  {
+        case PONG_EXAMPLE:
+            ping_led();
+        break;
+
+        case SIM_REG_EXAMPLE:
+            next_reg_led();
+        break;
+
+        case EXCEL_COLOR_VALUE:
+            ESP_LOGI(TAG, "display_neopixel mode %d not yet implemented", display_neopixel_mode);
+        break;
+
+        case BANDED_COLOR_VALUE:
+            ESP_LOGI(TAG, "display_neopixel mode %d not yet implemented", display_neopixel_mode);
+        break;
+
+        default:
+            ESP_LOGI(TAG, "WARNING: invalid display_neopixel mode %d", display_neopixel_mode);
+        break;
+    }
+}
 /*
  * move one led along the strip and back each time it's called
  * (i.e. create a chase by calling repeatedly)
@@ -62,7 +91,7 @@ static int8_t cur_led = -1;  // the led that is currently lit
 static uint8_t led_dir = 1;  // 1 = fwd, 0 = rev
 static uint8_t r = 16, g = 0, b = 0;
 #define NUM_LEDS 20  // temporary hack TODO
- void ping_led(void)
+void ping_led(void)
 {
     if(led_dir == 1)
     {
@@ -90,7 +119,43 @@ static uint8_t r = 16, g = 0, b = 0;
 }
 
 /*
- * configure the neopixel strip
+ * SIM_REG_EXAMPLE mode
+ */
+#define LED_REG_WIDTH 8  // number of leds to involve in this mode 0 - (this-1)
+#define LED_REG_MSG_SIZE 7
+static uint8_t led_reg_message[] = {0x4e, 0x43, 0x43, 0x31, 0x37, 0x30, 0x31};
+static int8_t led_idx = -1;  // to step through the message
+
+void next_reg_led(void)  {
+    int8_t end_idx = LED_REG_MSG_SIZE - 1;  // to know we are at end of message
+    uint8_t mask = 0x01;  // anded with ascii value to assign bit values
+
+    led_strip_clear(led_strip);
+
+    led_idx++;  // move to the next character in the message
+    if(led_idx > end_idx)
+        led_idx = 0;
+    
+    /*
+     * fill in the bit field from the led_reg_message[] values
+     * i.e. map the ascii bits of the message to the led bit state
+     */
+    for(uint8_t i = 0; i < (uint8_t)LED_REG_WIDTH; i++)  {
+        if((led_reg_message[led_idx] & mask) == (uint8_t)0)
+            led_strip_set_pixel(led_strip, i, 0, 0, 0);   // change the in-memory version (doesn't write physical led strip)
+        else
+            led_strip_set_pixel(led_strip, i, r, g, b);
+        mask = mask << 1;
+    }
+
+    led_strip_refresh(led_strip);
+
+}
+
+/*
+ * configure_led()
+ *
+ * configure the neopixel strip (common for all modes, called once)
  * and the hardware path to create the data stream:
  * CONFIG_BLINK_LED_STRIP_BACKEND_RMT: use RMT hardware (tested)
  * CONFIG_BLINK_LED_STRIP_BACKEND_SPI: use SPI hardware
