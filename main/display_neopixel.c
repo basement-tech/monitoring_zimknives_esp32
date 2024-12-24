@@ -179,7 +179,7 @@ void led_next_reg(void)  {
 #define LED_R 0
 #define LED_G 1
 #define LED_B 2
-static uint8_t led_bargraph_off_colors[NUM_LEDS][3] = {
+static const uint8_t led_bargraph_off_colors[NUM_LEDS][3] = {
     {0, 5, 0},
     {0, 5, 0},
     {0, 5, 0},
@@ -202,7 +202,7 @@ static uint8_t led_bargraph_off_colors[NUM_LEDS][3] = {
     {5, 0, 0},
 };
 
-static uint8_t led_bargraph_on_colors[NUM_LEDS][3] = {
+static const uint8_t led_bargraph_on_colors[NUM_LEDS][3] = {
     {0, 32, 0},
     {0, 32, 0},
     {0, 32, 0},

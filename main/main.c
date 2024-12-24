@@ -77,7 +77,7 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
 
 #define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
-#define DISPLAY_NEOPIXEL_SPEED (100 / portTICK_PERIOD_MS)  // mS between strip updates
+#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates
 
 /*
  * used for a simple integer simulation
@@ -98,7 +98,7 @@ static uint8_t sine_idx = -1;
 #define SINE_WAVE_ELE 20
 #define SINE_WAVE_MIN (float)0.0
 #define SINE_WAVE_MAX (float)2.0
-static float sine_wave_data[SINE_WAVE_ELE] = {
+static const float sine_wave_data[SINE_WAVE_ELE] = {
   0.24, 0.01, 0.44, 1.25, 1.89, 1.93, 1.33, 0.51, 0.02, 0.20, 0.92, 1.70, 2.00, 1.62, 0.82, 0.14, 0.05, 0.60, 1.42
 };
 
@@ -130,9 +130,16 @@ static void neopixel_example(void *pvParameters)
     {
         if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)  {
 //          led_bargraph_incr();  // simple integer simulation
-          sine_value = sine_wave_incr();  // sine wave simulation
+//          sine_value = sine_wave_incr();  // sine wave simulation
         }
-        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(sine_value, SINE_WAVE_MIN, SINE_WAVE_MAX));
+//        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(sine_value, SINE_WAVE_MIN, SINE_WAVE_MAX));
+        /*
+         * display the humidity sensor (sensor[0]) data across the
+         * neopixel array with 0% at the bottom and 50% at that top
+         */
+        ESP_LOGI(TAG, "displaying %s on neo_pixels, value = %f", sensors[0].label, *((float *)(sensors[0].data)));
+        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(*((float *)(sensors[0].data)), 0, 50));
+
         vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }
 }
