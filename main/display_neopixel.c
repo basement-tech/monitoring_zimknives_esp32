@@ -120,9 +120,14 @@ void ping_led(void)
 
 /*
  * SIM_REG_EXAMPLE mode
+
+ * play out the led_reg_message[] values on the lower 8 bits,
+ * while indicating the index thereof in the upper 8 bits
  */
 #define LED_REG_WIDTH 8  // number of leds to involve in this mode 0 - (this-1)
 #define LED_REG_MSG_SIZE 7
+#define LED_REG_IDX_START 8 // index lsb: where the led_idx is shown
+
 static uint8_t led_reg_message[] = {0x4e, 0x43, 0x43, 0x31, 0x37, 0x30, 0x31};
 static int8_t led_idx = -1;  // to step through the message
 
@@ -136,6 +141,11 @@ void next_reg_led(void)  {
     if(led_idx > end_idx)
         led_idx = 0;
     
+    /*
+     * set the led_idx value in the upper 8 bits of the neo_pixel display
+     */
+    led_strip_set_pixel(led_strip, (led_idx + LED_REG_IDX_START), r, g, b);
+
     /*
      * fill in the bit field from the led_reg_message[] values
      * i.e. map the ascii bits of the message to the led bit state
