@@ -77,31 +77,62 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
 
 #define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
-#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
+#define DISPLAY_NEOPIXEL_SPEED (100 / portTICK_PERIOD_MS)  // mS between strip updates
 
+/*
+ * used for a simple integer simulation
+ */
 #define LED_BARGRAPH_MAX 100
 #define LED_BARGRAPH_MIN 0
 int32_t led_bargraph_value = LED_BARGRAPH_MIN;
 static void led_bargraph_incr(void)  {
-  led_bargraph_value += 10;
+  led_bargraph_value += 5;
   if(led_bargraph_value > LED_BARGRAPH_MAX)
     led_bargraph_value = LED_BARGRAPH_MIN;
 }
 
+/*
+ * used for a floating point sinewave simulation
+ */
+static uint8_t sine_idx = -1;
+#define SINE_WAVE_ELE 20
+#define SINE_WAVE_MIN (float)0.0
+#define SINE_WAVE_MAX (float)2.0
+static float sine_wave_data[SINE_WAVE_ELE] = {
+  0.24, 0.01, 0.44, 1.25, 1.89, 1.93, 1.33, 0.51, 0.02, 0.20, 0.92, 1.70, 2.00, 1.62, 0.82, 0.14, 0.05, 0.60, 1.42
+};
+
+/*
+ * increment and return the next value in the sinewave data array
+ */
+static float sine_wave_incr()  {
+  sine_idx++;
+
+  if(sine_idx >= SINE_WAVE_ELE)
+    sine_idx = 0;
+  
+  return(sine_wave_data[sine_idx]);
+}
+
 static void neopixel_example(void *pvParameters)
 {
-    /* Configure the peripheral according to the LED type */
+    float sine_value = 0;
+    /*
+     * Configure the peripheral according to the LED type
+     */
     configure_led();
 
     if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)  {
       led_bargraph_min_set(0);
-      led_bargraph_max_set(100);
+      led_bargraph_max_set(255);
     }
     while(1)
     {
-        if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)
-          led_bargraph_incr();
-        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_value);
+        if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)  {
+//          led_bargraph_incr();  // simple integer simulation
+          sine_value = sine_wave_incr();  // sine wave simulation
+        }
+        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(sine_value, SINE_WAVE_MIN, SINE_WAVE_MAX));
         vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }
 }

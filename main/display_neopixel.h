@@ -28,6 +28,7 @@ void led_next_reg(void); // SIM_REG_EXAMPLE: display simulated register values
 void led_bargraph_max_set(int32_t max_value);
 void led_bargraph_min_set(int32_t min_value);
 void led_bargraph_update(int32_t value);
+int32_t led_bargraph_map(float value, float min_value, float max_value);
 
 
 #define __DISPLAY_NEOPIXEL_H__

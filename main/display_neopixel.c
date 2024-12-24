@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -179,49 +180,49 @@ void led_next_reg(void)  {
 #define LED_G 1
 #define LED_B 2
 static uint8_t led_bargraph_off_colors[NUM_LEDS][3] = {
-    {0, 10, 0},
-    {0, 10, 0},
-    {0, 10, 0},
-    {0, 10, 0},
-    {0, 10, 0},
-    {0, 10, 0},
-    {24, 24, 8},
-    {24, 24, 8},
-    {24, 24, 8},
-    {24, 24, 8},
-    {24, 24, 8},
-    {24, 24, 8},
-    {24, 24, 8},
-    {10, 0, 0},
-    {10, 0, 0},
-    {10, 0, 0},
-    {10, 0, 0},
-    {10, 0, 0},
-    {10, 0, 0},
-    {10, 0, 0},
+    {0, 5, 0},
+    {0, 5, 0},
+    {0, 5, 0},
+    {0, 5, 0},
+    {0, 5, 0},
+    {0, 5, 0},
+    {5, 5, 0},
+    {5, 5, 0},
+    {5, 5, 0},
+    {5, 5, 0},
+    {5, 5, 0},
+    {5, 5, 0},
+    {5, 5, 0},
+    {5, 0, 0},
+    {5, 0, 0},
+    {5, 0, 0},
+    {5, 0, 0},
+    {5, 0, 0},
+    {5, 0, 0},
+    {5, 0, 0},
 };
 
 static uint8_t led_bargraph_on_colors[NUM_LEDS][3] = {
-    {0, 90, 0},
-    {0, 90, 0},
-    {0, 90, 0},
-    {0, 90, 0},
-    {0, 90, 0},
-    {0, 90, 0},
-    {45, 45, 15},
-    {45, 45, 15},
-    {45, 45, 15},
-    {45, 45, 15},
-    {45, 45, 15},
-    {45, 45, 15},
-    {45, 45, 15},
-    {90, 0, 0},
-    {90, 0, 0},
-    {90, 0, 0},
-    {90, 0, 0},
-    {90, 0, 0},
-    {90, 0, 0},
-    {90, 0, 0},
+    {0, 32, 0},
+    {0, 32, 0},
+    {0, 32, 0},
+    {0, 32, 0},
+    {0, 32, 0},
+    {0, 32, 0},
+    {16, 16, 0},
+    {16, 16, 0},
+    {16, 16, 0},
+    {16, 16, 0},
+    {16, 16, 0},
+    {16, 16, 0},
+    {16, 16, 0},
+    {32, 0, 0},
+    {32, 0, 0},
+    {32, 0, 0},
+    {32, 0, 0},
+    {32, 0, 0},
+    {32, 0, 0},
+    {32, 0, 0},
 };
 
 static int32_t led_bargraph_max = 0;
@@ -252,28 +253,38 @@ void led_bargraph_update(int32_t value)  {
     led_strip_clear(led_strip);
 
     /*
-     * load the background color (i.e. off state)
-     */
-    for(uint8_t i = 0; i < NUM_LEDS; i++)
-        led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
-                            led_bargraph_off_colors[i][LED_G],
-                            led_bargraph_off_colors[i][LED_B]);
-
-    /*
      * overwrite the ones that should be on based on the input value
      */
     if((led_segment = value - led_bargraph_min) < led_bargraph_min)
         led_segment = 0;
+    if((led_segment = value - led_bargraph_min) > led_bargraph_max)
+        led_segment = led_bargraph_max;
+
+    /*
+     * what's the top pixel that should be turned on
+     * then index through the pixels turning on those below the top_on_pixel,
+     * and turning off those above (on means on color, ditto off)
+     */
     top_on_pixel = led_segment / ((led_bargraph_max - led_bargraph_min)/NUM_LEDS);
     for(uint8_t i = 0; i < NUM_LEDS; i++)  {
-        if(i < top_on_pixel)  {
+        if(i < top_on_pixel)
             led_strip_set_pixel(led_strip, i, led_bargraph_on_colors[i][LED_R], 
                                 led_bargraph_on_colors[i][LED_G],
                                 led_bargraph_on_colors[i][LED_B]);
-        }
+        else
+            led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
+                                led_bargraph_off_colors[i][LED_G],
+                                led_bargraph_off_colors[i][LED_B]);
     }
 
     led_strip_refresh(led_strip);
+}
+
+/*
+ * float range to integer range helper
+ */
+int32_t led_bargraph_map(float value, float min_value, float max_value)  {
+    return value * ((led_bargraph_max - led_bargraph_min)/(max_value - min_value));
 }
 
 /*
