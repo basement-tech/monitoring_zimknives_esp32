@@ -22,6 +22,7 @@
 #include "esp_log.h"
 #include "led_strip.h"
 #include "sdkconfig.h"
+#include "driver/gptimer.h"
 
 #include "display_neopixel.h"
 
@@ -57,6 +58,7 @@ static void blink_led(void)
     }
 }
 
+// start of display mode functions
 
 /*
  * update the led (neo_pixel) display based on the mode
@@ -286,6 +288,160 @@ void led_bargraph_update(int32_t value)  {
 int32_t led_bargraph_map(float value, float min_value, float max_value)  {
     return value * ((led_bargraph_max - led_bargraph_min)/(max_value - min_value));
 }
+
+/*
+ * fast display - timer/interrupt driven display of waveform values
+ *                on neopixel display.  the waveform is expected to be an array
+ *                of integers and the isr increments the index to the next value.
+ *                if the display task can run, it will update the physical neopixel
+ *                strand.  If not, it'll get it next time.
+ * NOTE: demo plays out an ekg waveform at a consistent rate of 1000 samples/s
+ * need:
+ *   timer
+ *   semaphore
+ *   waveform storage/conversion
+ *   
+ */
+int32_t led_bargraph_fast_value[] = {0};
+
+/*
+ * ekg waveform  (543 samples) 
+ */
+#define EKG_NUM_SAMPLES 543
+const short  ekg_data[] = {
+939, 940, 941, 942, 944, 945, 946, 947, 951, 956, 
+962, 967, 973, 978, 983, 989, 994, 1000, 1005, 1015, 
+1024, 1034, 1043, 1053, 1062, 1075, 1087, 1100, 1112, 1121, 
+1126, 1131, 1136, 1141, 1146, 1151, 1156, 1164, 1172, 1179, 
+1187, 1194, 1202, 1209, 1216, 1222, 1229, 1235, 1241, 1248, 
+1254, 1260, 1264, 1268, 1271, 1275, 1279, 1283, 1287, 1286, 
+1284, 1281, 1279, 1276, 1274, 1271, 1268, 1266, 1263, 1261, 
+1258, 1256, 1253, 1251, 1246, 1242, 1237, 1232, 1227, 1222, 
+1218, 1215, 1211, 1207, 1203, 1199, 1195, 1191, 1184, 1178, 
+1171, 1165, 1159, 1152, 1146, 1141, 1136, 1130, 1125, 1120, 
+1115, 1110, 1103, 1096, 1088, 1080, 1073, 1065, 1057, 1049, 
+1040, 1030, 1021, 1012, 1004, 995, 987, 982, 978, 974, 
+970, 966, 963, 959, 955, 952, 949, 945, 942, 939, 
+938, 939, 940, 941, 943, 944, 945, 946, 946, 946, 
+946, 946, 946, 946, 946, 947, 950, 952, 954, 956, 
+958, 960, 962, 964, 965, 965, 965, 965, 965, 965, 
+963, 960, 957, 954, 951, 947, 944, 941, 938, 932, 
+926, 920, 913, 907, 901, 894, 885, 865, 820, 733,
+606, 555, 507, 632, 697, 752, 807, 896, 977, 1023, 
+1069, 1127, 1237, 1347, 1457, 2085, 2246, 2474, 2549, 2595, 
+2641, 2695, 3083, 3135, 3187, 3217, 3315, 3403, 3492, 3581, 
+3804, 3847, 3890, 3798, 3443, 3453, 3297, 3053, 2819, 2810, 
+2225, 2258, 1892, 1734, 1625, 998, 903, 355, 376, 203, 
+30, 33, 61, 90, 119, 160, 238, 275, 292, 309, 
+325, 343, 371, 399, 429, 484, 542, 602, 652, 703, 
+758, 802, 838, 856, 875, 895, 917, 938, 967, 1016, 
+1035, 1041, 1047, 1054, 1060, 1066, 1066, 1064, 1061, 1058, 
+1056, 1053, 1051, 1048, 1046, 1043, 1041, 1038, 1035, 1033, 
+1030, 1028, 1025, 1022, 1019, 1017, 1014, 1011, 1008, 1006, 
+1003, 1001, 999, 998, 996, 994, 993, 991, 990, 988, 
+986, 985, 983, 981, 978, 976, 973, 971, 968, 966, 
+963, 963, 963, 963, 963, 963, 963, 963, 963, 963, 
+963, 963, 963, 963, 963, 963, 963, 963, 963, 963, 
+964, 965, 966, 967, 968, 969, 970, 971, 972, 974, 
+976, 978, 980, 983, 985, 987, 989, 991, 993, 995, 
+997, 999, 1002, 1006, 1011, 1015, 1019, 1023, 1028, 1032, 
+1036, 1040, 1045, 1050, 1055, 1059, 1064, 1069, 1076, 1082, 
+1088, 1095, 1101, 1107, 1114, 1120, 1126, 1132, 1141, 1149, 
+1158, 1166, 1173, 1178, 1183, 1188, 1193, 1198, 1203, 1208, 
+1214, 1221, 1227, 1233, 1240, 1246, 1250, 1254, 1259, 1263, 
+1269, 1278, 1286, 1294, 1303, 1309, 1315, 1322, 1328, 1334, 
+1341, 1343, 1345, 1347, 1349, 1351, 1353, 1355, 1357, 1359, 
+1359, 1359, 1359, 1359, 1358, 1356, 1354, 1352, 1350, 1347, 
+1345, 1343, 1341, 1339, 1336, 1334, 1332, 1329, 1327, 1324, 
+1322, 1320, 1317, 1315, 1312, 1307, 1301, 1294, 1288, 1281, 
+1275, 1270, 1265, 1260, 1256, 1251, 1246, 1240, 1233, 1227, 
+1221, 1214, 1208, 1201, 1194, 1186, 1178, 1170, 1162, 1154, 
+1148, 1144, 1140, 1136, 1131, 1127, 1123, 1118, 1114, 1107, 
+1099, 1090, 1082, 1074, 1069, 1064, 1058, 1053, 1048, 1043, 
+1038, 1034, 1029, 1025, 1021, 1017, 1013, 1009, 1005, 1001, 
+997, 994, 990, 991, 992, 994, 996, 997, 999, 998, 
+997, 996, 995, 994, 993, 991, 990, 989, 989, 989, 
+989, 989, 989, 989, 988, 986, 984, 983, 981, 980, 
+982, 984, 986, 988, 990, 993, 995, 997, 999, 1002, 
+1005, 1008, 1012};
+int32_t led_bargraph_fast_index = 0;
+
+/*
+ * callback to increment the waveform index
+ */
+static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_data)  {
+    BaseType_t high_task_awoken = pdFALSE;
+
+    if(++led_bargraph_fast_index >= EKG_NUM_SAMPLES)
+        led_bargraph_fast_index = 0; // to the next data value
+
+    ESP_ERROR_CHECK(gptimer_set_raw_count(timer, 0));
+
+    return (high_task_awoken == pdTRUE);
+}
+
+/*
+ * set up led_bargraph_fast_timer
+ */
+void led_bargraph_fast_timer_init(void)  {
+
+    int32_t my_data = 0; // not sure if I'll need this; passed to isr
+
+    /*
+     * set up the timer
+     */
+    ESP_LOGI(TAG, "Create led fast display timer handle");
+    gptimer_handle_t fast_bg_gptimer = NULL;
+    gptimer_config_t fast_bg_timer_config = {
+        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
+        .direction = GPTIMER_COUNT_UP,
+        .resolution_hz = 1000, // 1kHz, 1 tick=1us
+    };
+    ESP_ERROR_CHECK(gptimer_new_timer(&fast_bg_timer_config, &fast_bg_gptimer));
+
+    gptimer_event_callbacks_t cbs = {
+        .on_alarm = fast_bg_cbs,
+    };
+    ESP_ERROR_CHECK(gptimer_register_event_callbacks(fast_bg_gptimer, &cbs, &my_data));
+
+    ESP_LOGI(TAG, "Enable fast_bg_timer");
+    ESP_ERROR_CHECK(gptimer_enable(fast_bg_gptimer));
+
+    /*
+     * attach the isr to the timer
+     */
+
+    /*
+     * start the timer
+     */
+}
+
+
+/*
+ * update the value to be displayed in shared memory
+ * (this will be the isr)
+ */
+void led_bargraph_update_fast_value(void)  {
+
+}
+
+/*
+ * check if the value has changed and update the neopixel
+ * strip if so
+ * 
+ * this function will block on the data semaphore
+ * 
+ * this function checks to see if, given the resolution of 
+ * the display (i.e. number of leds), the display would actually
+ * change given the size of the change in input value.  Doesn't do
+ * anything if it doesn't need to.
+ */
+void led_bargraph_update_fast_display (void)  {
+
+}
+
+// end of display mode functions
+
 
 /*
  * configure_led()

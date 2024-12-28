@@ -73,11 +73,17 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_MODE PONG_EXAMPLE
 //#define DISPLAY_NEOPIXEL_SPEED (50 / portTICK_PERIOD_MS)  // mS between strip updates
 
-//#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
-//#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
+#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
+#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
 
-#define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
-#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates
+//#define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
+//#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates ... ignored for FAST_WAVEFORM
+
+// which data value to display
+#define DATA_VALUE_SINE 0
+#define DATA_VALUE_INT  1
+#define DATA_VALUE_HUM  3
+#define DISPLAY_NEOPIXEL_VALUE  DATA_VALUE_HUM
 
 /*
  * used for a simple integer simulation
@@ -122,23 +128,46 @@ static void neopixel_example(void *pvParameters)
      */
     configure_led();
 
+    /*
+     * configure/start the neo_pixel demo mode
+     */
     if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)  {
       led_bargraph_min_set(0);
       led_bargraph_max_set(255);
     }
+    else if (DISPLAY_NEOPIXEL_MODE == FAST_WAVEFORM)  {
+      led_bargraph_min_set(0);
+      led_bargraph_max_set(4096);
+      led_bargraph_fast_timer_init(); // initialize and start the time, intr, display
+    }
+
+    /*
+     * some slightly badly structured code to try out
+     * a few different ways of displaying things on the neopixel strip
+     * 
+     * NOTE: for the fast waveform display, nothing needs to be done
+     * in the loop since movement is driven from a timer
+     */
     while(1)
     {
         if(DISPLAY_NEOPIXEL_MODE == EXCEL_COLOR_VALUE)  {
-//          led_bargraph_incr();  // simple integer simulation
-//          sine_value = sine_wave_incr();  // sine wave simulation
+          ;
+#if DISPLAY_NEOPIXEL_VALUE == DATA_VALUE_INT
+            led_bargraph_incr();  // simple integer simulation
+#elif DISPLAY_NEOPIXEL_VALUE == DATA_VALUE_SINE
+            sine_value = sine_wave_incr();  // sine wave simulation
+            display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(sine_value, SINE_WAVE_MIN, SINE_WAVE_MAX));
+#elif DISPLAY_NEOPIXEL_VALUE == DATA_VALUE_HUM
+          /*
+           * display the humidity sensor (sensor[0]) data across the
+           * neopixel array with 0% at the bottom and 50% at that top
+           */
+            ESP_LOGI(TAG, "displaying %s on neo_pixels, value = %f", sensors[0].label, *((float *)(sensors[0].data)));
+            display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(*((float *)(sensors[0].data)), 0, 50));
         }
-//        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(sine_value, SINE_WAVE_MIN, SINE_WAVE_MAX));
-        /*
-         * display the humidity sensor (sensor[0]) data across the
-         * neopixel array with 0% at the bottom and 50% at that top
-         */
-        ESP_LOGI(TAG, "displaying %s on neo_pixels, value = %f", sensors[0].label, *((float *)(sensors[0].data)));
-        display_neopixel_update(DISPLAY_NEOPIXEL_MODE, led_bargraph_map(*((float *)(sensors[0].data)), 0, 50));
+#endif
+        else if (DISPLAY_NEOPIXEL_MODE == SIM_REG_EXAMPLE)
+          display_neopixel_update(DISPLAY_NEOPIXEL_MODE, 0);
 
         vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }
