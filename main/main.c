@@ -73,16 +73,19 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_MODE PONG_EXAMPLE
 //#define DISPLAY_NEOPIXEL_SPEED (50 / portTICK_PERIOD_MS)  // mS between strip updates
 
-#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
-#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
+//#define DISPLAY_NEOPIXEL_MODE SIM_REG_EXAMPLE
+//#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
 
 //#define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
 //#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates ... ignored for FAST_WAVEFORM
 
-// which data value to display
-#define DATA_VALUE_SINE 0
-#define DATA_VALUE_INT  1
-#define DATA_VALUE_HUM  3
+#define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
+#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates ... ignored for FAST_WAVEFORM
+
+// which data value to display for EXCEL_COLOR_VALUE mode
+#define DATA_VALUE_SINE 0  // canned sin wave
+#define DATA_VALUE_INT  1  // incremented integer
+#define DATA_VALUE_HUM  3  // live humidity data from HTU21D
 #define DISPLAY_NEOPIXEL_VALUE  DATA_VALUE_HUM
 
 /*
@@ -168,6 +171,9 @@ static void neopixel_example(void *pvParameters)
 #endif
         else if (DISPLAY_NEOPIXEL_MODE == SIM_REG_EXAMPLE)
           display_neopixel_update(DISPLAY_NEOPIXEL_MODE, 0);
+
+        else
+          ESP_LOGI(TAG, "nothing to do in loop");
 
         vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }

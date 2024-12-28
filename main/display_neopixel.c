@@ -395,25 +395,33 @@ void led_bargraph_fast_timer_init(void)  {
     gptimer_config_t fast_bg_timer_config = {
         .clk_src = GPTIMER_CLK_SRC_DEFAULT,
         .direction = GPTIMER_COUNT_UP,
-        .resolution_hz = 1000, // 1kHz, 1 tick=1us
+        .resolution_hz = 1000000, // 1MHz, 1 tick=1us
     };
     ESP_ERROR_CHECK(gptimer_new_timer(&fast_bg_timer_config, &fast_bg_gptimer));
 
+    /*
+     * attach the isr to the timer
+     */
     gptimer_event_callbacks_t cbs = {
         .on_alarm = fast_bg_cbs,
     };
     ESP_ERROR_CHECK(gptimer_register_event_callbacks(fast_bg_gptimer, &cbs, &my_data));
 
-    ESP_LOGI(TAG, "Enable fast_bg_timer");
-    ESP_ERROR_CHECK(gptimer_enable(fast_bg_gptimer));
-
-    /*
-     * attach the isr to the timer
-     */
+    gptimer_alarm_config_t alarm_config1 = {
+        .alarm_count = 1000, // period = 1mS
+    };
+    ESP_ERROR_CHECK(gptimer_set_alarm_action(fast_bg_gptimer, &alarm_config1));
 
     /*
      * start the timer
      */
+    ESP_LOGI(TAG, "Enable fast_bg_timer");
+    ESP_ERROR_CHECK(gptimer_enable(fast_bg_gptimer));
+    ESP_ERROR_CHECK(gptimer_start(fast_bg_gptimer));
+
+
+
+
 }
 
 
