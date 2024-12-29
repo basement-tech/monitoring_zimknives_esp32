@@ -19,6 +19,7 @@ enum Neo_pixel_disp_mode  {
     FAST_WAVEFORM,      // fast waveform display with timer/interrupt
 };
 
+
 void configure_led(void);  // called once to initialize the led_strip
 
 void display_neopixel_update(uint8_t display_neopixel_mode, int32_t value);  // call the appropriate update function based on mode

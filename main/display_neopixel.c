@@ -256,7 +256,8 @@ void led_bargraph_update(int32_t value)  {
     led_strip_clear(led_strip);
 
     /*
-     * overwrite the ones that should be on based on the input value
+     * calculate the size of the on segment
+     * NOTE: the min value may not be zero
      */
     if((led_segment = value - led_bargraph_min) < led_bargraph_min)
         led_segment = 0;
@@ -366,6 +367,7 @@ const short  ekg_data[] = {
 1005, 1008, 1012};
 
 int32_t led_bargraph_fast_index = 0; // index into waveform array
+SemaphoreHandle_t bgf_Semaphore = NULL;  // bargraph fast data index semaphore
 
 /*
  * callback to increment the waveform index
@@ -381,21 +383,45 @@ static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_ev
 
     gpio_set_level(GPIO_OUTPUT_IO_0, led_state);
 
-    led_bargraph_fast_index++;
-    if(led_bargraph_fast_index >= EKG_NUM_SAMPLES)
-        led_bargraph_fast_index = 0; // to the next data value
-// should be taken care of by auto_reload
-//    ESP_ERROR_CHECK(gptimer_set_raw_count(timer, 0));
+    /*
+     * take the data index semaphore so it can be updated with protection
+     * another task (e.g. display process) may be waiting on this semaphore
+     * to know when it's safe to index the data array
+     */
+    if(xSemaphoreTakeFromISR(bgf_Semaphore, pdFALSE) == pdTRUE)  {
+        led_bargraph_fast_index++;
+        if(led_bargraph_fast_index >= EKG_NUM_SAMPLES)
+            led_bargraph_fast_index = 0; // to the next data value
+        xSemaphoreGiveFromISR(bgf_Semaphore, pdFALSE);
+    }
 
     return (high_task_awoken == pdTRUE);
 }
 
 /*
- * set up led_bargraph_fast_timer
+ * set up led_bargraph_fast_timer and create the data index semaphore
  */
+
 void led_bargraph_fast_timer_init(void)  {
 
     int32_t my_data = 0; // not sure if I'll need this; passed to isr
+
+    /*
+     * create the bargraph fast data index semaphore
+     * NOTE: this semaphore must be given before it can be taken
+     * use xSemaphoreTake(xSemaphore, xBlockTime) to take
+     * (xSemaphoreTake(xSemaphore, portMAX_DELAY) to block indefinitely until available,
+     *  provided INCLUDE_vTaskSuspend is set to 1 in FreeRTOSConfig.h)
+     * use xSemaphoreGive(xSemaphore) to give
+     */
+    bgf_Semaphore = xSemaphoreCreateBinary();
+
+    if( bgf_Semaphore != NULL )  {
+        ESP_LOGI(TAG, "bargraph fast data index semaphore created successfully");
+        xSemaphoreGive(bgf_Semaphore);  // has to be given before it can be taken
+    }
+    else
+        ESP_LOGE(TAG, "bargraph fast data index semaphore create failed");
 
     /*
      * set up the timer
@@ -435,14 +461,6 @@ void led_bargraph_fast_timer_init(void)  {
 
 
 /*
- * update the value to be displayed in shared memory
- * (this will be the isr)
- */
-void led_bargraph_update_fast_value(void)  {
-
-}
-
-/*
  * check if the value has changed and update the neopixel
  * strip if so
  * 
@@ -453,13 +471,58 @@ void led_bargraph_update_fast_value(void)  {
  * change given the size of the change in input value.  Doesn't do
  * anything if it doesn't need to.
  * 
- * NOTE: AS A TEST, JUST FIRST TRY TOGGLING A GPIO PIN BASED ON INDEX VALUE
  */
+uint32_t cur_top_on_pixel = 0; // remember the state of the phy neo_pixel strip
 void led_bargraph_update_fast_display (void)  {
-    if((led_bargraph_fast_index % 2) == 0)
-        gpio_set_level(GPIO_OUTPUT_IO_0, 1);
-    else
-        gpio_set_level(GPIO_OUTPUT_IO_0, 0);
+    int32_t value = 0;
+    uint8_t top_on_pixel = 0;  // on this pixel and below
+    int32_t led_segment = 0;
+
+    /*
+     * WAIT HERE !
+     * block waiting for the data index
+     * when available, copy the data value to a local variable for further processing
+     */
+    xSemaphoreTake(bgf_Semaphore, portMAX_DELAY);  // block waiting for the data index
+    value = ekg_data[led_bargraph_fast_index];  // save a little bit of indirection
+    xSemaphoreGive(bgf_Semaphore);
+
+    if(value <= 0)  value = 0;
+    /*
+     * calculate the size of the on segment
+     * NOTE: the min value may not be zero
+     */
+    if((led_segment = value - led_bargraph_min) < led_bargraph_min)
+        led_segment = 0;
+    if((led_segment = value - led_bargraph_min) > led_bargraph_max)
+        led_segment = led_bargraph_max;
+    top_on_pixel = led_segment / ((led_bargraph_max - led_bargraph_min)/NUM_LEDS);
+
+    /*
+     * if the value has not changed enough, given the small number of neo_pixels,
+     * to change the display, then do nothing
+     */
+    if(top_on_pixel != cur_top_on_pixel)  {
+        cur_top_on_pixel = top_on_pixel;
+        led_strip_clear(led_strip);
+
+        /*
+         * then index through the pixels turning on those below the top_on_pixel,
+         * and turning off those above (on means on color, ditto off)
+         */
+        for(uint8_t i = 0; i < NUM_LEDS; i++)  {
+            if(i < top_on_pixel)
+                led_strip_set_pixel(led_strip, i, led_bargraph_on_colors[i][LED_R], 
+                                    led_bargraph_on_colors[i][LED_G],
+                                    led_bargraph_on_colors[i][LED_B]);
+            else
+                led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
+                                    led_bargraph_off_colors[i][LED_G],
+                                    led_bargraph_off_colors[i][LED_B]);
+        }
+
+        led_strip_refresh(led_strip);
+    }
 }
 
 // end of display mode functions

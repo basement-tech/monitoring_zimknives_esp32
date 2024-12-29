@@ -81,7 +81,7 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip update
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
-#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates
+#define DISPLAY_NEOPIXEL_SPEED (20 / portTICK_PERIOD_MS)  // mS between strip updates
 
 // which data value to display for EXCEL_COLOR_VALUE mode
 #define DATA_VALUE_SINE 0  // canned sin wave
@@ -173,13 +173,14 @@ static void neopixel_example(void *pvParameters)
         else if (DISPLAY_NEOPIXEL_MODE == SIM_REG_EXAMPLE)
           display_neopixel_update(DISPLAY_NEOPIXEL_MODE, 0);
 
-//        else if (DISPLAY_NEOPIXEL_MODE == FAST_WAVEFORM)
-//          led_bargraph_update_fast_display();
+        else if (DISPLAY_NEOPIXEL_MODE == FAST_WAVEFORM)
+          led_bargraph_update_fast_display();
 
         else
           ESP_LOGI(TAG, "nothing to do in loop");
 
-        vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
+        if(DISPLAY_NEOPIXEL_SPEED > 0)
+          vTaskDelay(DISPLAY_NEOPIXEL_SPEED);  // set speed of neopixel chase here and give IDLE() time to run
     }
 }
 
@@ -236,6 +237,10 @@ void app_main(void)
     /*
      * create a task to play out the neopixel example
      * TODO: why was the priority 10 ?
+     * Enabled the gpio instrumentation to play out a square wave at 500 Hz.
+     * Measured on ucounter was 499.9937.
+     * Tried a prio of 10 to see if it might go to exactly 500, but stayed where it was.
+     * 
      */
     xTaskCreate(neopixel_example, "neopixel_example", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL);
 
