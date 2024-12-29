@@ -23,6 +23,7 @@
 #include "led_strip.h"
 #include "sdkconfig.h"
 #include "driver/gptimer.h"
+#include "driver/gpio.h"
 
 #include "display_neopixel.h"
 
@@ -302,7 +303,6 @@ int32_t led_bargraph_map(float value, float min_value, float max_value)  {
  *   waveform storage/conversion
  *   
  */
-int32_t led_bargraph_fast_value[] = {0};
 
 /*
  * ekg waveform  (543 samples) 
@@ -364,18 +364,28 @@ const short  ekg_data[] = {
 989, 989, 989, 989, 988, 986, 984, 983, 981, 980, 
 982, 984, 986, 988, 990, 993, 995, 997, 999, 1002, 
 1005, 1008, 1012};
-int32_t led_bargraph_fast_index = 0;
+
+int32_t led_bargraph_fast_index = 0; // index into waveform array
 
 /*
  * callback to increment the waveform index
  */
+static uint8_t led_state = 0;
 static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_data)  {
     BaseType_t high_task_awoken = pdFALSE;
 
-    if(++led_bargraph_fast_index >= EKG_NUM_SAMPLES)
-        led_bargraph_fast_index = 0; // to the next data value
+    if(led_state == 0)
+        led_state = 1;
+    else
+        led_state = 0;
 
-    ESP_ERROR_CHECK(gptimer_set_raw_count(timer, 0));
+    gpio_set_level(GPIO_OUTPUT_IO_0, led_state);
+
+    led_bargraph_fast_index++;
+    if(led_bargraph_fast_index >= EKG_NUM_SAMPLES)
+        led_bargraph_fast_index = 0; // to the next data value
+// should be taken care of by auto_reload
+//    ESP_ERROR_CHECK(gptimer_set_raw_count(timer, 0));
 
     return (high_task_awoken == pdTRUE);
 }
@@ -409,6 +419,8 @@ void led_bargraph_fast_timer_init(void)  {
 
     gptimer_alarm_config_t alarm_config1 = {
         .alarm_count = 1000, // period = 1mS
+        .flags.auto_reload_on_alarm = true,
+        .reload_count = 0,
     };
     ESP_ERROR_CHECK(gptimer_set_alarm_action(fast_bg_gptimer, &alarm_config1));
 
@@ -418,9 +430,6 @@ void led_bargraph_fast_timer_init(void)  {
     ESP_LOGI(TAG, "Enable fast_bg_timer");
     ESP_ERROR_CHECK(gptimer_enable(fast_bg_gptimer));
     ESP_ERROR_CHECK(gptimer_start(fast_bg_gptimer));
-
-
-
 
 }
 
@@ -443,9 +452,14 @@ void led_bargraph_update_fast_value(void)  {
  * the display (i.e. number of leds), the display would actually
  * change given the size of the change in input value.  Doesn't do
  * anything if it doesn't need to.
+ * 
+ * NOTE: AS A TEST, JUST FIRST TRY TOGGLING A GPIO PIN BASED ON INDEX VALUE
  */
 void led_bargraph_update_fast_display (void)  {
-
+    if((led_bargraph_fast_index % 2) == 0)
+        gpio_set_level(GPIO_OUTPUT_IO_0, 1);
+    else
+        gpio_set_level(GPIO_OUTPUT_IO_0, 0);
 }
 
 // end of display mode functions
@@ -487,4 +501,26 @@ void configure_led(void)
 #endif
     /* Set all LED off to clear all pixels */
     led_strip_clear(led_strip);
+}
+
+
+/*
+ * initialize some instrumentation
+ */
+
+
+void instru_gpio_init(void)  {
+    gpio_config_t io_conf = {};
+    //disable interrupt
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    //set as output mode
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    //bit mask of the pins that you want to set,e.g.GPIO18/19
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    //disable pull-down mode
+    io_conf.pull_down_en = 0;
+    //disable pull-up mode
+    io_conf.pull_up_en = 1;  // enabled pull up  - DJZ
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
 }

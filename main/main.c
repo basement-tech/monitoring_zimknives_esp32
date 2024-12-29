@@ -21,6 +21,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "driver/gpio.h"
 
 #include "monitoring_zimknives.h"
 
@@ -77,10 +78,10 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates
 
 //#define DISPLAY_NEOPIXEL_MODE EXCEL_COLOR_VALUE
-//#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates ... ignored for FAST_WAVEFORM
+//#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip update
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
-#define DISPLAY_NEOPIXEL_SPEED (1000 / portTICK_PERIOD_MS)  // mS between strip updates ... ignored for FAST_WAVEFORM
+#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip updates
 
 // which data value to display for EXCEL_COLOR_VALUE mode
 #define DATA_VALUE_SINE 0  // canned sin wave
@@ -172,6 +173,9 @@ static void neopixel_example(void *pvParameters)
         else if (DISPLAY_NEOPIXEL_MODE == SIM_REG_EXAMPLE)
           display_neopixel_update(DISPLAY_NEOPIXEL_MODE, 0);
 
+//        else if (DISPLAY_NEOPIXEL_MODE == FAST_WAVEFORM)
+//          led_bargraph_update_fast_display();
+
         else
           ESP_LOGI(TAG, "nothing to do in loop");
 
@@ -191,6 +195,8 @@ void app_main(void)
 {
   char wifi_key[16];  // key to wifi instance
   int msg_id;  // mqtt message id from broker
+
+  instru_gpio_init();
 
     /*
      * Initialize NVS - apparently saves last successful connect credentials
