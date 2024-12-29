@@ -298,16 +298,13 @@ int32_t led_bargraph_map(float value, float min_value, float max_value)  {
  *                if the display task can run, it will update the physical neopixel
  *                strand.  If not, it'll get it next time.
  * NOTE: demo plays out an ekg waveform at a consistent rate of 1000 samples/s
- * need:
- *   timer
- *   semaphore
- *   waveform storage/conversion
  *   
  */
 
 /*
  * ekg waveform  (543 samples) 
  */
+#define FAST_BG_ALARM_COUNT 2000 // 1 uS counts between samples
 #define EKG_NUM_SAMPLES 543
 const short  ekg_data[] = {
 939, 940, 941, 942, 944, 945, 946, 947, 951, 956, 
@@ -376,12 +373,7 @@ static uint8_t led_state = 0;
 static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_data)  {
     BaseType_t high_task_awoken = pdFALSE;
 
-    if(led_state == 0)
-        led_state = 1;
-    else
-        led_state = 0;
 
-    gpio_set_level(GPIO_OUTPUT_IO_0, led_state);
 
     /*
      * take the data index semaphore so it can be updated with protection
@@ -393,6 +385,16 @@ static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_ev
         if(led_bargraph_fast_index >= EKG_NUM_SAMPLES)
             led_bargraph_fast_index = 0; // to the next data value
         xSemaphoreGiveFromISR(bgf_Semaphore, pdFALSE);
+
+        /*
+         * little instrumentation
+         */
+        if(led_state == 0)
+            led_state = 1;
+        else
+            led_state = 0;
+
+        gpio_set_level(GPIO_OUTPUT_IO_0, led_state);
     }
 
     return (high_task_awoken == pdTRUE);
@@ -444,7 +446,7 @@ void led_bargraph_fast_timer_init(void)  {
     ESP_ERROR_CHECK(gptimer_register_event_callbacks(fast_bg_gptimer, &cbs, &my_data));
 
     gptimer_alarm_config_t alarm_config1 = {
-        .alarm_count = 1000, // period = 1mS
+        .alarm_count = FAST_BG_ALARM_COUNT, // period
         .flags.auto_reload_on_alarm = true,
         .reload_count = 0,
     };
@@ -511,7 +513,8 @@ void led_bargraph_update_fast_display (void)  {
          * and turning off those above (on means on color, ditto off)
          */
         for(uint8_t i = 0; i < NUM_LEDS; i++)  {
-            if(i < top_on_pixel)
+//            if(i < top_on_pixel)  // turn all all below
+            if(i == top_on_pixel)  // turn on only one at the top_on_pixel
                 led_strip_set_pixel(led_strip, i, led_bargraph_on_colors[i][LED_R], 
                                     led_bargraph_on_colors[i][LED_G],
                                     led_bargraph_on_colors[i][LED_B]);
