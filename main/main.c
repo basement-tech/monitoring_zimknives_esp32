@@ -81,7 +81,7 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip update
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
-#define DISPLAY_NEOPIXEL_SPEED (20 / portTICK_PERIOD_MS)  // mS between strip updates
+#define DISPLAY_NEOPIXEL_SPEED (16 / portTICK_PERIOD_MS)  // mS between strip updates
 
 // which data value to display for EXCEL_COLOR_VALUE mode
 #define DATA_VALUE_SINE 0  // canned sin wave

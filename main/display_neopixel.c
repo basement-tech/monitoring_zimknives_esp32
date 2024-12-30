@@ -260,7 +260,7 @@ void led_bargraph_update(int32_t value)  {
      * NOTE: the min value may not be zero
      */
     if((led_segment = value - led_bargraph_min) < led_bargraph_min)
-        led_segment = 0;
+        led_segment = led_bargraph_min;
     if((led_segment = value - led_bargraph_min) > led_bargraph_max)
         led_segment = led_bargraph_max;
 
@@ -475,6 +475,8 @@ void led_bargraph_fast_timer_init(void)  {
  * 
  */
 uint32_t cur_top_on_pixel = 0; // remember the state of the phy neo_pixel strip
+uint8_t led_state_2 = 0;
+
 void led_bargraph_update_fast_display (void)  {
     int32_t value = 0;
     uint8_t top_on_pixel = 0;  // on this pixel and below
@@ -489,14 +491,26 @@ void led_bargraph_update_fast_display (void)  {
     value = ekg_data[led_bargraph_fast_index];  // save a little bit of indirection
     xSemaphoreGive(bgf_Semaphore);
 
-    if(value <= 0)  value = 0;
+    /*
+     * little instrumentation
+     */
+    if(led_state_2 == 0)
+        led_state_2 = 1;
+    else
+        led_state_2 = 0;
+
+    gpio_set_level(GPIO_OUTPUT_IO_1, led_state_2);
+
+    if(value <= 0)  value = 0; // haven't tested for negative numbers
+
     /*
      * calculate the size of the on segment
      * NOTE: the min value may not be zero
      */
     if((led_segment = value - led_bargraph_min) < led_bargraph_min)
-        led_segment = 0;
-    if((led_segment = value - led_bargraph_min) > led_bargraph_max)
+        led_segment = led_bargraph_min;
+
+    if(led_segment > led_bargraph_max)
         led_segment = led_bargraph_max;
     top_on_pixel = led_segment / ((led_bargraph_max - led_bargraph_min)/NUM_LEDS);
 
@@ -504,7 +518,7 @@ void led_bargraph_update_fast_display (void)  {
      * if the value has not changed enough, given the small number of neo_pixels,
      * to change the display, then do nothing
      */
-    if(top_on_pixel != cur_top_on_pixel)  {
+    if(top_on_pixel != cur_top_on_pixel)  { 
         cur_top_on_pixel = top_on_pixel;
         led_strip_clear(led_strip);
 
@@ -518,10 +532,10 @@ void led_bargraph_update_fast_display (void)  {
                 led_strip_set_pixel(led_strip, i, led_bargraph_on_colors[i][LED_R], 
                                     led_bargraph_on_colors[i][LED_G],
                                     led_bargraph_on_colors[i][LED_B]);
-            else
-                led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
-                                    led_bargraph_off_colors[i][LED_G],
-                                    led_bargraph_off_colors[i][LED_B]);
+//            else
+//                led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
+//                                    led_bargraph_off_colors[i][LED_G],
+//                                    led_bargraph_off_colors[i][LED_B]);
         }
 
         led_strip_refresh(led_strip);
