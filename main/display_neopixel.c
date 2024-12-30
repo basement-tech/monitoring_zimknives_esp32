@@ -379,29 +379,25 @@ static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_ev
      * take the data index semaphore so it can be updated with protection
      * another task (e.g. display process) may be waiting on this semaphore
      * to know when it's safe to index the data array
+     * 
+     * this section is taking from 2 - 15 uS (guessing the longer is context switching)
      */
     if(xSemaphoreTakeFromISR(bgf_Semaphore, pdFALSE) == pdTRUE)  {
+        gpio_set_level(GPIO_OUTPUT_IO_0, 1);  // instrumentation
         led_bargraph_fast_index++;
         if(led_bargraph_fast_index >= EKG_NUM_SAMPLES)
             led_bargraph_fast_index = 0; // to the next data value
         xSemaphoreGiveFromISR(bgf_Semaphore, pdFALSE);
+        gpio_set_level(GPIO_OUTPUT_IO_0, 0);
 
-        /*
-         * little instrumentation
-         */
-        if(led_state == 0)
-            led_state = 1;
-        else
-            led_state = 0;
-
-        gpio_set_level(GPIO_OUTPUT_IO_0, led_state);
     }
 
     return (high_task_awoken == pdTRUE);
 }
 
 /*
- * set up led_bargraph_fast_timer and create the data index semaphore
+ * set up led_bargraph_fast_timer (actually drives the simulated
+ * data acquisition) and create the data index semaphore
  */
 
 void led_bargraph_fast_timer_init(void)  {

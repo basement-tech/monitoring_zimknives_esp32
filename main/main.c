@@ -82,6 +82,7 @@ void sensor_acq_slow(void *pvParameters)  {
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
 #define DISPLAY_NEOPIXEL_SPEED (16 / portTICK_PERIOD_MS)  // mS between strip updates
+//#define DISPLAY_NEOPIXEL_SPEED (0 / portTICK_PERIOD_MS)  // let the scheduler decide
 
 // which data value to display for EXCEL_COLOR_VALUE mode
 #define DATA_VALUE_SINE 0  // canned sin wave
@@ -142,7 +143,7 @@ static void neopixel_example(void *pvParameters)
     else if (DISPLAY_NEOPIXEL_MODE == FAST_WAVEFORM)  {
       led_bargraph_min_set(0);
       led_bargraph_max_set(4096);
-      led_bargraph_fast_timer_init(); // initialize and start the time, intr, display
+//      led_bargraph_fast_timer_init(); // initialize and start the time, intr, display
     }
 
     /*
@@ -184,6 +185,18 @@ static void neopixel_example(void *pvParameters)
     }
 }
 
+/*
+ * split out the fast acquisition from the neopixel display task
+ * so separate priorities can be set
+ * this task increments the index into the simulated data array
+ * on a hardware timer
+ */
+static void fast_acq_sim_task(void *pvParameters)  {
+
+   led_bargraph_fast_timer_init();
+
+   while(1);
+}
 
 /*
  * main task:
@@ -235,11 +248,30 @@ void app_main(void)
     configASSERT( xHandle_1 ); /* check whether the returned handle is NULL */
 
     /*
+     * create the fast acquisition simulation task
+     */
+    xTaskCreate(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL);
+    //xTaskCreatePinnedToCore(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL, 1);
+
+    /*
      * create a task to play out the neopixel example
      * TODO: why was the priority 10 ?
      * Enabled the gpio instrumentation to play out a square wave at 500 Hz.
      * Measured on ucounter was 499.9937.
      * Tried a prio of 10 to see if it might go to exactly 500, but stayed where it was.
+     * 
+     * ^^^^ABOVE^^^^^
+     * Separated the fast acquisition task into a separate task so that the prio could
+     * be adjusted separately from the display.  Set the task delay at the bottom of the display
+     * task to 0 and the data acquisition square wave instrumentation had more breaks in it.
+     * Bumped up the acquisition task prio to 10 to see of a steady square wave could be restored:
+     * no change in jitter on acq square wave.  Tried pinned to core and both, still some jitter.
+     * 
+     * Add back the vTaskDelay at the bottom of the display process (16 mS) reduces the acq jitter significantly.
+     * So, I think the bottom line is that the display task, being less critical, needs to be throttled
+     * either by a timer or a delay.  Note that the display task has nothing to do a lot (NUMLEDS = 20)
+     * due to the low resolution of the display (the code doesn't write a change if the value hasn't
+     * changed enough to require it.)
      * 
      */
     xTaskCreate(neopixel_example, "neopixel_example", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL);
