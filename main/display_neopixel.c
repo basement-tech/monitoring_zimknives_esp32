@@ -475,7 +475,6 @@ void led_bargraph_fast_timer_init(void)  {
  * 
  */
 uint32_t cur_top_on_pixel = 0; // remember the state of the phy neo_pixel strip
-uint8_t led_state_2 = 0;
 
 void led_bargraph_update_fast_display (void)  {
     int32_t value = 0;
@@ -492,14 +491,9 @@ void led_bargraph_update_fast_display (void)  {
     xSemaphoreGive(bgf_Semaphore);
 
     /*
-     * little instrumentation
+     * little instrumentation: start display update
      */
-    if(led_state_2 == 0)
-        led_state_2 = 1;
-    else
-        led_state_2 = 0;
-
-    gpio_set_level(GPIO_OUTPUT_IO_1, led_state_2);
+    gpio_set_level(GPIO_OUTPUT_IO_1, 1);
 
     if(value <= 0)  value = 0; // haven't tested for negative numbers
 
@@ -540,6 +534,10 @@ void led_bargraph_update_fast_display (void)  {
 
         led_strip_refresh(led_strip);
     }
+    /*
+     * little instrumentation: end display update
+     */
+    gpio_set_level(GPIO_OUTPUT_IO_1, 0);
 }
 
 // end of display mode functions
