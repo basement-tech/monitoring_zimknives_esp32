@@ -81,8 +81,18 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip update
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
-//#define DISPLAY_NEOPIXEL_SPEED (16 / portTICK_PERIOD_MS)  // mS between strip updates
-#define DISPLAY_NEOPIXEL_SPEED (0 / portTICK_PERIOD_MS)  // let the scheduler decide
+
+/*
+ * throttle the display to ~100 ups
+ * the detail of the EKG simulated waveform emerges when this is about 100 ups
+ * also, seems that the display update time becomes more consistent with this
+ * delay included.
+ */
+#define DISPLAY_NEOPIXEL_SPEED (5 / portTICK_PERIOD_MS)
+/*
+ * throttle the display to ~100 ups
+ */
+//#define DISPLAY_NEOPIXEL_SPEED (0 / portTICK_PERIOD_MS)  // let the scheduler decide
 
 // which data value to display for EXCEL_COLOR_VALUE mode
 #define DATA_VALUE_SINE 0  // canned sin wave

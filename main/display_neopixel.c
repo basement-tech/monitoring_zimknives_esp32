@@ -304,7 +304,7 @@ int32_t led_bargraph_map(float value, float min_value, float max_value)  {
 /*
  * ekg waveform  (543 samples) 
  */
-#define FAST_BG_ALARM_COUNT 2000 // 1 uS counts between samples
+#define FAST_BG_ALARM_COUNT 2000 // 2000 counts on 1 uS clock = 2 mS counts between samples
 #define EKG_NUM_SAMPLES 543
 const short  ekg_data[] = {
 939, 940, 941, 942, 944, 945, 946, 947, 951, 956, 
