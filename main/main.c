@@ -81,6 +81,7 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip update
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
+#define FAST_ACQ_PRIO tskIDLE_PRIORITY
 
 /*
  * throttle the display to ~100 ups
@@ -260,7 +261,7 @@ void app_main(void)
     /*
      * create the fast acquisition simulation task
      */
-    xTaskCreate(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, FAST_ACQ_PRIO, NULL);
     //xTaskCreatePinnedToCore(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL, 1);
 
     /*
