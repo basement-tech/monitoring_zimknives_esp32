@@ -365,11 +365,14 @@ const short  ekg_data[] = {
 
 int32_t led_bargraph_fast_index = 0; // index into waveform array
 SemaphoreHandle_t bgf_Semaphore = NULL;  // bargraph fast data index semaphore
+SemaphoreHandle_t disphold_Semaphore = NULL;  // display hold index semaphore
 
 /*
  * callback to increment the waveform index
  */
-static uint8_t led_state = 0;
+static uint8_t led_state = 0;  // for instrumentation
+static int32_t last_disp_data = 0;  // remember the last value for delta calculation
+static int32_t delta = 0;  // global so it doesn't need to be created on the stack
 static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_data)  {
     BaseType_t high_task_awoken = pdFALSE;
 
@@ -381,15 +384,25 @@ static bool IRAM_ATTR fast_bg_cbs(gptimer_handle_t timer, const gptimer_alarm_ev
      * to know when it's safe to index the data array
      * 
      * this section is taking from 2 - 15 uS (guessing the longer is context switching)
+     * 
+     * TODO: is this too much to do in an isr ?  Can I block until a value is greater than threshold ?
      */
     if(xSemaphoreTakeFromISR(bgf_Semaphore, pdFALSE) == pdTRUE)  {
-        gpio_set_level(GPIO_OUTPUT_IO_0, 1);  // instrumentation
+        led_state = (led_state ? 0 : 1);  // instrumentation
         led_bargraph_fast_index++;
         if(led_bargraph_fast_index >= EKG_NUM_SAMPLES)
             led_bargraph_fast_index = 0; // to the next data value
         xSemaphoreGiveFromISR(bgf_Semaphore, pdFALSE);
-        gpio_set_level(GPIO_OUTPUT_IO_0, 0);
 
+        delta = abs(last_disp_data - ekg_data[led_bargraph_fast_index]);
+        if(delta > DISPLAY_HOLD_DELTA)   {
+            last_disp_data = ekg_data[led_bargraph_fast_index];
+            xSemaphoreGiveFromISR(disphold_Semaphore, pdFALSE);
+        }
+        else
+            xSemaphoreTakeFromISR(disphold_Semaphore, pdFALSE);
+
+        gpio_set_level(GPIO_OUTPUT_IO_0, led_state);
     }
 
     return (high_task_awoken == pdTRUE);
@@ -420,6 +433,15 @@ void led_bargraph_fast_timer_init(void)  {
     }
     else
         ESP_LOGE(TAG, "bargraph fast data index semaphore create failed");
+
+    disphold_Semaphore = xSemaphoreCreateBinary();
+
+    if( disphold_Semaphore != NULL )  {
+        ESP_LOGI(TAG, "display hold semaphore created successfully");
+        xSemaphoreGive(disphold_Semaphore);  // has to be given before it can be taken
+    }
+    else
+        ESP_LOGE(TAG, "display hold semaphore create failed");
 
     /*
      * set up the timer
@@ -459,10 +481,14 @@ void led_bargraph_fast_timer_init(void)  {
 
 
 /*
+ * light a single pixel based on ekg_data[led_bargraph_fast_index] data.
+ * the index is updated externally to simulate data acquisition.
+ * (NOTE: no background led intensity is used in this simulation)
+ * 
  * check if the value has changed and update the neopixel
  * strip if so
  * 
- * this function will block on the data semaphore
+ * this function will block on the display hold semaphore
  * 
  * this function checks to see if, given the resolution of 
  * the display (i.e. number of leds), the display would actually
@@ -479,6 +505,11 @@ void led_bargraph_update_fast_display (void)  {
 
     /*
      * WAIT HERE !
+     * wait here until this process is signaled that fresh data is available
+     */
+    xSemaphoreTake(disphold_Semaphore, portMAX_DELAY);
+
+    /*
      * block waiting for the data index
      * when available, copy the data value to a local variable for further processing
      */
@@ -502,7 +533,10 @@ void led_bargraph_update_fast_display (void)  {
 
     if(led_segment > led_bargraph_max)
         led_segment = led_bargraph_max;
+
     top_on_pixel = led_segment / ((led_bargraph_max - led_bargraph_min)/NUM_LEDS);
+    if(top_on_pixel < 0)  top_on_pixel = 0;
+    if(top_on_pixel >= NUM_LEDS)  top_on_pixel = NUM_LEDS - 1;
 
     /*
      * if the value has not changed enough, given the small number of neo_pixels,
@@ -512,21 +546,9 @@ void led_bargraph_update_fast_display (void)  {
         cur_top_on_pixel = top_on_pixel;
         led_strip_clear(led_strip);
 
-        /*
-         * then index through the pixels turning on those below the top_on_pixel,
-         * and turning off those above (on means on color, ditto off)
-         */
-        for(uint8_t i = 0; i < NUM_LEDS; i++)  {
-//            if(i < top_on_pixel)  // turn all all below
-            if(i == top_on_pixel)  // turn on only one at the top_on_pixel
-                led_strip_set_pixel(led_strip, i, led_bargraph_on_colors[i][LED_R], 
-                                    led_bargraph_on_colors[i][LED_G],
-                                    led_bargraph_on_colors[i][LED_B]);
-//            else
-//                led_strip_set_pixel(led_strip, i, led_bargraph_off_colors[i][LED_R], 
-//                                    led_bargraph_off_colors[i][LED_G],
-//                                    led_bargraph_off_colors[i][LED_B]);
-        }
+        led_strip_set_pixel(led_strip, top_on_pixel, led_bargraph_on_colors[top_on_pixel][LED_R], 
+                    led_bargraph_on_colors[top_on_pixel][LED_G],
+                    led_bargraph_on_colors[top_on_pixel][LED_B]);
 
         led_strip_refresh(led_strip);
     }
@@ -548,6 +570,13 @@ void led_bargraph_update_fast_display (void)  {
  * CONFIG_BLINK_LED_STRIP_BACKEND_SPI: use SPI hardware
  * NOTE: both use dedicated hardware to play out the sequence
  * once loaded (i.e. doesn't require software to refresh)
+ * 
+ * led_strip_new_rmt_device() in led_strip_rmt_dev.c sets a lot of useful
+ * defaults for the rmt channel based on the number of LED's in the strip.
+ * The number of rmt symbols, for example, is 64 (apparently 4 bytes each)
+ * which should be adequate for the 20 pixels used in this example.
+ * 
+ * TODO: paramaterize number of LED's and Pin number
  *
  */
 void configure_led(void)

@@ -81,8 +81,8 @@ void sensor_acq_slow(void *pvParameters)  {
 //#define DISPLAY_NEOPIXEL_SPEED (2000 / portTICK_PERIOD_MS)  // mS between strip update
 
 #define DISPLAY_NEOPIXEL_MODE FAST_WAVEFORM
-#define DISPLAY_NEOPIXEL_SPEED (16 / portTICK_PERIOD_MS)  // mS between strip updates
-//#define DISPLAY_NEOPIXEL_SPEED (0 / portTICK_PERIOD_MS)  // let the scheduler decide
+//#define DISPLAY_NEOPIXEL_SPEED (16 / portTICK_PERIOD_MS)  // mS between strip updates
+#define DISPLAY_NEOPIXEL_SPEED (0 / portTICK_PERIOD_MS)  // let the scheduler decide
 
 // which data value to display for EXCEL_COLOR_VALUE mode
 #define DATA_VALUE_SINE 0  // canned sin wave
@@ -250,7 +250,7 @@ void app_main(void)
     /*
      * create the fast acquisition simulation task
      */
-    xTaskCreate(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, 10, NULL);
     //xTaskCreatePinnedToCore(fast_acq_sim_task, "fast_acq_sim_task", STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL, 1);
 
     /*

@@ -19,6 +19,14 @@ enum Neo_pixel_disp_mode  {
     FAST_WAVEFORM,      // fast waveform display with timer/interrupt
 };
 
+/*
+ * app specific; delta between measurements that causes the hold semaphore to be released
+ * in some applications, the hold semaphore can prevent the display thread from unblocking
+ * and wasting resources when the display resolution would cause no change in the physical
+ * display.  (I know, mixing acquisition with display ... ???)
+ */
+#define DISPLAY_HOLD_DELTA 200
+
 
 void configure_led(void);  // called once to initialize the led_strip
 
